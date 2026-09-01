@@ -171,6 +171,7 @@ button{font-family:inherit; color:inherit}
 .btn:hover{filter:brightness(1.08)}
 .btn:disabled{opacity:.4; cursor:not-allowed; filter:none}
 .btn.fantasma{background:none; border:1px solid var(--linea); color:var(--tinta2); font-weight:600}
+.btn.mini{padding:3px 9px; font-size:11px; font-family:var(--f-dato); letter-spacing:.03em}
 .sel{background:#0D1120; border:1px solid var(--linea); color:var(--tinta2);
   border-radius:7px; padding:8px; font-family:var(--f-dato); font-size:12px}
 .bloques{display:flex; gap:4px; margin-left:auto; align-items:center}
@@ -279,7 +280,8 @@ button{font-family:inherit; color:inherit}
         <h3 style="margin-top:14px">Lo que pide el paso <b id="reqPaso">sin paso abierto</b></h3>
         <div id="umbrales"></div>
 
-        <h3 style="margin-top:14px">Consejos <b>del sistema nervioso</b></h3>
+        <h3 style="margin-top:14px">Consejos del sistema nervioso
+          <button class="btn fantasma mini" id="btnConsejo">siguiente ›</button></h3>
         <div id="consejos"></div>
       </div>
     </section>
@@ -303,7 +305,7 @@ button{font-family:inherit; color:inherit}
       </div>
 
       <div class="escena">
-        <canvas id="cuarto" width="1000" height="560"></canvas>
+        <canvas id="cuarto" width="1000" height="520"></canvas>
         <div class="burbuja" id="burbuja"></div>
         <div class="haciendo">
           <span class="qué" id="haciendo">Despertando</span>
@@ -353,8 +355,8 @@ button{font-family:inherit; color:inherit}
           <div class="ficha" id="fichaNodo">
             <h4>Grafo de conocimiento</h4>
             <p>Cada cosa que entiende es un nodo. Se desbloquean investigando (Andromeda), caminando (las conexiones salen en la caminata, no en la silla) y se <b>consolidan al dormir</b>: lo que no duerme, no se guarda.</p>
-            <span class="etq" id="contNodos">0 / 0 nodos</span>
           </div>
+          <p class="nota" id="contNodos" style="margin-top:8px">0 / 0 nodos</p>
         </div>
 
         <div id="p-mesa" hidden>
@@ -983,13 +985,21 @@ nodo("herramientas").on = true; nodo("500").on = true; nodo("supervivencia").on 
    9. DIBUJO — el cuarto isométrico
    ═══════════════════════════════════════════════════════════════════════ */
 const cv = $("#cuarto"), cx = cv.getContext("2d");
-const TW = 46, TH = 23, ZH = 40, OX = 500, OY = 150;
+const TW = 78, TH = 39, ZH = 66, OX = 523, OY = 143;   // la cámara, encima del escritorio
 const iso = (x,y,z=0) => [OX + (x-y)*TW, OY + (x+y)*TH - z*ZH];
 
-function sombra(hex, f) {
-  const n = parseInt(hex.slice(1), 16);
-  const r = Math.min(255, ((n>>16)&255)*f) | 0, g = Math.min(255, ((n>>8)&255)*f) | 0, b = Math.min(255, (n&255)*f) | 0;
-  return "rgb(" + r + "," + g + "," + b + ")";
+function sombra(color, f) {
+  // acepta "#rrggbb" y "rgb(r,g,b)": las paredes se sombrean dos veces y la
+  // segunda pasada recibía ya un rgb(), que no se podía parsear y salía negro
+  let r, g, b;
+  if (color[0] === "#") {
+    const n = parseInt(color.slice(1), 16);
+    r = (n>>16)&255; g = (n>>8)&255; b = n&255;
+  } else {
+    const m = color.match(/\d+/g) || [0,0,0];
+    r = +m[0]; g = +m[1]; b = +m[2];
+  }
+  return "rgb(" + (Math.min(255, r*f)|0) + "," + (Math.min(255, g*f)|0) + "," + (Math.min(255, b*f)|0) + ")";
 }
 function poly(pts, fill) {
   cx.beginPath(); cx.moveTo(pts[0][0], pts[0][1]);
@@ -1022,11 +1032,11 @@ function dibujaCuarto(tf) {
   // piso
   for (let x=0;x<8;x++) for (let y=0;y<7;y++) {
     const p = [iso(x,y), iso(x+1,y), iso(x+1,y+1), iso(x,y+1)];
-    poly(p, (x+y)%2 ? sombra("#232A3D", 1-noche*.28) : sombra("#1D2334", 1-noche*.28));
+    poly(p, (x+y)%2 ? sombra("#2A3348", 1-noche*.16) : sombra("#232B3D", 1-noche*.16));
   }
   // paredes
   
-  const par = sombra("#2A3145", 1-noche*.30);
+  const par = sombra("#333C55", 1-noche*.20);
   // pared del fondo (y=0)
   poly([iso(0,0,0), iso(8,0,0), iso(8,0,2.2), iso(0,0,2.2)], sombra(par,.86));
   // pared izquierda (x=0)
@@ -1057,6 +1067,10 @@ function dibujaCuarto(tf) {
   caja(1.25,1.25,0,.12,.12,.72,"#332619"); caja(1.25,3.65,0,.12,.12,.72,"#332619");
   // torre
   caja(1.35,3.9,0,.5,.7,.9,"#20252F");
+  // teclado y ratón, que es donde van a caer las manos
+  caja(1.72,1.92,.72,.34,.80,.020,"#1B2230");
+  for (let i = 0; i < 5; i++) caja(1.75,1.98 + i*.15,.740,.28,.11,.006,"#2B3446");
+  caja(1.76,2.88,.72,.13,.17,.038,"#242C3C");
   // monitor
   const brillo = S.pos.estado === "pc" ? .9 + Math.sin(tf/7)*.06 : .25;
   caja(1.35,1.55,.72,.10,1.5,.95,"#171C26");
@@ -1084,6 +1098,17 @@ function dibujaCuarto(tf) {
   const rg = cx.createRadialGradient(gx,gy,4,gx,gy,150);
   rg.addColorStop(0,"rgba(" + tono.join(",") + ",.20)"); rg.addColorStop(1,"rgba(0,0,0,0)");
   cx.fillStyle = rg; cx.fillRect(gx-160,gy-120,320,240);
+  // la lámpara del escritorio: de noche es lo que hace que se vea trabajar
+  if (noche > .15) {
+    caja(1.30,3.30,.72,.10,.10,.36,"#2A3140");
+    caja(1.24,3.20,1.05,.26,.30,.10,"#C9A24B");
+    const [lx,ly] = iso(1.9,2.9,.72);
+    const lg = cx.createRadialGradient(lx,ly,6,lx,ly,190);
+    lg.addColorStop(0,"rgba(255,205,120," + (.20*noche).toFixed(2) + ")");
+    lg.addColorStop(1,"rgba(255,205,120,0)");
+    cx.fillStyle = lg; cx.fillRect(lx-200,ly-160,400,320);
+  }
+
   // silla
   const sentado = ["pc"].includes(S.pos.estado);
   caja(2.35,2.0,0,.55,.55,.42,"#242A38");
@@ -1097,7 +1122,7 @@ function dibujaCuarto(tf) {
   // viñeta nocturna
   if (noche > 0) {
     const vg = cx.createRadialGradient(W/2,H/2,120,W/2,H/2,W*.62);
-    vg.addColorStop(0,"rgba(0,0,0,0)"); vg.addColorStop(1,"rgba(2,3,8," + (noche*.62) + ")");
+    vg.addColorStop(0,"rgba(0,0,0,0)"); vg.addColorStop(1,"rgba(2,3,8," + (noche*.40) + ")");
     cx.fillStyle = vg; cx.fillRect(0,0,W,H);
   }
 }
@@ -1138,10 +1163,25 @@ function dibujaPersona(tf) {
   caja(x+.02-paso*.5, y+.30, 0, .16, .16, .42 - agacha, "#1C2A42");
   // tronco
   caja(x, y+.02, .42-agacha, .30, .42, .46, ropa);
-  // brazos: tecleando
-  const tec = (e === "pc") ? Math.sin(tf/4)*.03 : 0;
-  caja(x-.16, y+.06, .70-agacha+tec, .18, .14, .12, ropa);
-  caja(x-.16, y+.30, .70-agacha-tec, .18, .14, .12, ropa);
+  // brazos y manos. Frente a la computadora teclea de verdad: cada mano lleva su
+  // propio compás, y cada tantos segundos la derecha se va al ratón.
+  if (e === "pc") {
+    const ritmo = S.accion && ["paso","sistema","replicar","editar","blender","andro"].includes(S.accion.id)
+      ? 3.0 : 5.2;                                    // trabajando teclea más rápido
+    const alRaton = Math.floor(tf / 200) % 4 === 3;
+    for (let i = 0; i < 2; i++) {
+      const izq = i === 0;
+      const yBase = izq ? y + .03 : y + .30;
+      const yMano = (!izq && alRaton) ? y + .62 : yBase;
+      const golpe = Math.max(0, Math.sin(tf/ritmo + i*1.9));
+      const zh = .70 - agacha - golpe*.035;
+      caja(x - .40, yBase + .01, zh + .015, .34, .11, .085, ropa);          // antebrazo
+      caja(x - .50, yMano, zh, .13, .13, .07, piel);                        // mano
+    }
+  } else {
+    caja(x-.16, y+.06, .70-agacha, .18, .14, .12, ropa);
+    caja(x-.16, y+.30, .70-agacha, .18, .14, .12, ropa);
+  }
   // cabeza
   caja(x+.03, y+.08, .88-agacha, .26, .30, .28, piel);
   caja(x+.02, y+.07, 1.10-agacha, .28, .32, .07, "#241A16");
@@ -1668,13 +1708,24 @@ const CONSEJOS = [
   {q:() => !listoParaElPaso() && !!pasoActual(), quien:"el", txt:"Está por debajo de lo que el paso pide. Forzarlo ahora tarda el doble: primero sube el nivel que falta, luego empieza."},
   {q:() => true, quien:"dos", txt:"Una meta a la vez, escrita y visible. Lo que ya sostiene el papel no lo tiene que sostener la memoria de trabajo."},
 ];
+let consejoOff = 0;
 function pintaConsejos() {
-  const v = CONSEJOS.filter(c => { try { return c.q(); } catch (e) { return false; } }).slice(0, 4);
+  // los que aplican ahora primero; los demás quedan detrás del botón «siguiente»
+  const aplican = CONSEJOS.filter(c => { try { return c.q(); } catch (e) { return false; } });
+  const resto = CONSEJOS.filter(c => !aplican.includes(c));
+  const todos = aplican.concat(resto);
+  if (!todos.length) return;
+  const n = todos.length, cuantos = Math.min(3, n);
+  const vista = Array.from({length: cuantos}, (_, i) => todos[(consejoOff + i) % n]);
   const et = {ti:["ti","para ti"], el:["el","para él"], dos:["dos","los dos"]};
-  $("#consejos").innerHTML = v.map(c =>
+  $("#consejos").innerHTML = vista.map(c =>
     '<div class="consejo"><span class="qn ' + et[c.quien][0] + '">' + et[c.quien][1] + '</span>' +
-    '<p>' + c.txt + '</p></div>').join("");
+    '<p>' + (aplican.includes(c) ? "" : '<span class="etq" style="margin-right:6px">para después</span>') +
+    c.txt + '</p></div>').join("") +
+    '<p class="nota" style="margin-top:6px">' + ((consejoOff % n) + 1) + '–' +
+    (((consejoOff + cuantos - 1) % n) + 1) + ' de ' + n + ' · ' + aplican.length + ' aplican ahora mismo</p>';
 }
+$("#btnConsejo").addEventListener("click", () => { consejoOff++; pintaConsejos(); });
 
 /* ── el cerebro revisa lo que propone Codex y decide ─────────────────── */
 async function revisaCodex(p, vClaude, vCodex) {
@@ -1979,12 +2030,16 @@ function tictac(msReales) {
 function pintaTimer() {
   const m = Math.max(0, Math.floor(T.queda/60)), s = Math.max(0, T.queda % 60);
   $("#cuenta").textContent = String(m).padStart(2,"0") + ":" + String(s).padStart(2,"0");
-  $("#fase").textContent = T.fase === "descanso" ? "descanso · levántate" :
-                           T.corriendo ? "bloque de trabajo" : "listo para arrancar";
+  $("#fase").textContent = T.fase === "descanso" ? "descanso · levántate — llevas " + T.bloques :
+                           T.corriendo ? "bloque " + (T.bloques + 1) + " de hoy" :
+                           T.bloques ? "listo · llevas " + T.bloques + " bloque" + (T.bloques > 1 ? "s" : "") + " hoy"
+                                     : "listo para arrancar";
   $("#timer").className = "timer" + (T.corriendo ? (T.fase === "descanso" ? " descansando" : " corriendo") : "");
   $("#btnTimer").textContent = T.corriendo ? "Pausar" : (T.fase === "listo" ? "Empezar bloque" : "Seguir");
-  $("#bloquesHoy").innerHTML = Array.from({length: Math.max(4, T.bloques)},
-    (_, i) => '<i class="' + (i < T.bloques ? "on" : "") + '"></i>').join("") ;
+  $("#bloquesHoy").innerHTML =
+    '<b style="font-family:var(--f-dato); font-size:13px; color:' + (T.bloques ? "var(--plumbob)" : "var(--tinta3)") +
+    '; margin-right:6px">' + T.bloques + '</b>' +
+    Array.from({length: Math.max(4, T.bloques)}, (_, i) => '<i class="' + (i < T.bloques ? "on" : "") + '"></i>').join("");
 }
 
 $("#btnPlan").addEventListener("click", buscaPlan);
@@ -2028,12 +2083,21 @@ function bucle(t) {
     }
   }
 
-  dibujaCuarto(cuadro);
-  fuerzas(); dibujaGrafo();
-  if (cuadro % 6 === 0) { pintaIzquierda(); pintaCentro(); pintaAcciones(); dibujaPK(); pintaTimer(); }
-  if (cuadro % 18 === 0 && S.plan.pasos.length) pintaPlan();
-  if (cuadro % 30 === 0) { pintaNegocio(); $("#contNodos").textContent =
-    NODOS.filter(n=>n.on).length + " / " + NODOS.length + " nodos · " + NODOS.filter(n=>n.on&&n.frágil).length + " frágiles"; }
+  // Un cuadro que truena no puede tumbar el reloj entero: se anota y se sigue.
+  try {
+    dibujaCuarto(cuadro);
+    fuerzas(); dibujaGrafo();
+    if (cuadro % 6 === 0) { pintaIzquierda(); pintaCentro(); pintaAcciones(); dibujaPK(); pintaTimer(); }
+    if (cuadro % 18 === 0 && S.plan.pasos.length) pintaPlan();
+    if (cuadro % 30 === 0) {
+      pintaNegocio();
+      const c = $("#contNodos");
+      if (c) c.textContent = NODOS.filter(n=>n.on).length + " / " + NODOS.length + " nodos · " +
+                             NODOS.filter(n=>n.on&&n.frágil).length + " frágiles";
+    }
+  } catch (e) {
+    if (!S.tronó) { S.tronó = true; bitacora("Un cuadro tronó y siguió: " + (e.message || e), "m"); }
+  }
   requestAnimationFrame(bucle);
 }
 
