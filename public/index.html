@@ -142,6 +142,52 @@ button{font-family:inherit; color:inherit}
 .leyenda i{display:inline-block; width:9px; height:2.5px; border-radius:2px; vertical-align:middle; margin-right:5px}
 .meta input{width:100%; background:#0D1120; border:1px solid var(--linea); border-radius:7px;
   padding:8px 10px; color:var(--tinta); font-family:var(--f-display); font-size:14px; font-weight:700}
+/* ── timer de bloques: el mando que compartimos ──────────────────────── */
+.timer{display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  background:linear-gradient(180deg,#171D2E,#121626); border:1px solid var(--linea);
+  border-radius:var(--r); padding:12px 14px}
+.timer.corriendo{border-color:#2C6B47}
+.timer.descansando{border-color:#2F5C6B}
+.cuenta{font-family:var(--f-dato); font-size:38px; font-weight:600; line-height:1;
+  font-variant-numeric:tabular-nums; letter-spacing:-.02em; display:block}
+.timer.descansando .cuenta{color:var(--ht)}
+.fase{font-family:var(--f-dato); font-size:10.5px; text-transform:uppercase;
+  letter-spacing:.11em; color:var(--tinta3); display:block; margin-bottom:2px}
+.btn{background:var(--plumbob); color:#07130C; border:0; border-radius:8px;
+  padding:9px 15px; font-weight:700; font-size:13px; cursor:pointer; font-family:inherit}
+.btn:hover{filter:brightness(1.08)}
+.btn:disabled{opacity:.4; cursor:not-allowed; filter:none}
+.btn.fantasma{background:none; border:1px solid var(--linea); color:var(--tinta2); font-weight:600}
+.sel{background:#0D1120; border:1px solid var(--linea); color:var(--tinta2);
+  border-radius:7px; padding:8px; font-family:var(--f-dato); font-size:12px}
+.bloques{display:flex; gap:4px; margin-left:auto; align-items:center}
+.bloques i{width:9px; height:16px; border-radius:2px; background:#232a3f; display:block}
+.bloques i.on{background:var(--plumbob)}
+.fila{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+.fila input{flex:1; min-width:170px}
+
+/* ── el plan ─────────────────────────────────────────────────────────── */
+.paso{display:grid; grid-template-columns:20px 1fr auto; gap:3px 9px;
+  padding:9px 0; border-bottom:1px solid var(--linea)}
+.paso:last-child{border-bottom:0}
+.paso .num{font-family:var(--f-dato); font-size:11px; color:var(--tinta3)}
+.paso.activo .num{color:var(--plumbob); font-weight:600}
+.paso .tt{font-size:13px; font-weight:600}
+.paso.hecho .tt{color:var(--tinta3); text-decoration:line-through}
+.paso .pq{font-size:11.5px; color:var(--tinta3); grid-column:2/-1}
+.paso .barra{grid-column:2/-1; margin-top:4px}
+.paso .mm{font-family:var(--f-dato); font-size:11px; color:var(--tinta3); white-space:nowrap}
+
+/* ── mesa de trabajo ─────────────────────────────────────────────────── */
+.voz{border-left:2px solid; padding:2px 0 2px 10px; margin-bottom:12px}
+.voz.claude{border-color:#39E27A} .voz.codex{border-color:#8B7BFF} .voz.el{border-color:#E8A93A}
+.voz b{font-family:var(--f-dato); font-size:10.5px; text-transform:uppercase;
+  letter-spacing:.09em; display:block; margin-bottom:4px}
+.voz.claude b{color:#39E27A} .voz.codex b{color:#8B7BFF} .voz.el b{color:#E8A93A}
+.voz p{margin:0 0 5px; font-size:12.5px; color:var(--tinta2)}
+.voz code{font-family:var(--f-dato); font-size:11.5px; background:#0D1120;
+  border:1px solid var(--linea); border-radius:5px; padding:2px 6px;
+  display:inline-block; margin:2px 0; word-break:break-all}
 .pie{color:var(--tinta3); font-size:11.5px; text-align:center; padding:4px 0 0; line-height:1.6}
 .pie a{color:var(--tinta2)}
 </style>
@@ -188,6 +234,22 @@ button{font-family:inherit; color:inherit}
 
     <!-- ══ CENTRO: el cuarto ══════════════════════════════════════════ -->
     <section class="col">
+      <div class="timer" id="timer">
+        <div>
+          <span class="fase" id="fase">bloque de trabajo</span>
+          <span class="cuenta" id="cuenta">25:00</span>
+        </div>
+        <button class="btn" id="btnTimer">Empezar bloque</button>
+        <button class="btn fantasma" id="btnSalta">Saltar</button>
+        <select class="sel" id="modoTimer" aria-label="Duración de los bloques">
+          <option value="25/5">25 / 5</option>
+          <option value="50/10">50 / 10</option>
+          <option value="90/15">90 / 15</option>
+        </select>
+        <span class="nota" style="max-width:250px">Tu bloque es su bloque: mientras corre, él trabaja el paso actual del plan. Cuando descansas, él se levanta.</span>
+        <span class="bloques" id="bloquesHoy" title="bloques terminados hoy"></span>
+      </div>
+
       <div class="escena">
         <canvas id="cuarto" width="1000" height="560"></canvas>
         <div class="burbuja" id="burbuja"></div>
@@ -204,9 +266,13 @@ button{font-family:inherit; color:inherit}
       </div>
 
       <div class="caja meta">
-        <h3>La única meta</h3>
-        <input id="meta" value="Que el sistema haga los videos sin mí" maxlength="64" aria-label="La única meta">
-        <p class="nota" style="margin-top:7px">Una meta escrita y visible baja el costo de cambiar de tarea: la corteza prefrontal no tiene que sostenerla en memoria de trabajo. Dos metas simultáneas cuestan más que el doble.</p>
+        <h3>La meta <b id="planEstado">sin plan todavía</b></h3>
+        <div class="fila">
+          <input id="meta" value="Que el sistema haga los videos sin mí" maxlength="90" aria-label="La meta">
+          <button class="btn" id="btnPlan">Que busque cómo</button>
+        </div>
+        <p class="nota" style="margin-top:7px" id="notaPlan">Escríbele la meta que tengas lista. La parte en pasos y se pone a trabajarlos — cada paso mueve el negocio de verdad, no es una lista de adorno. Una sola meta a la vez: dos cuestan más que el doble.</p>
+        <div id="pasos"></div>
       </div>
 
       <div class="caja">
@@ -220,6 +286,7 @@ button{font-family:inherit; color:inherit}
       <div class="caja">
         <div class="tabs" role="tablist">
           <button role="tab" aria-selected="true" data-t="grafo">Grafo</button>
+          <button role="tab" aria-selected="false" data-t="mesa">Mesa</button>
           <button role="tab" aria-selected="false" data-t="proto">Protocolos</button>
           <button role="tab" aria-selected="false" data-t="negocio">Negocio</button>
           <button role="tab" aria-selected="false" data-t="log">Bitácora</button>
@@ -232,6 +299,14 @@ button{font-family:inherit; color:inherit}
             <p>Cada cosa que entiende es un nodo. Se desbloquean investigando (Andromeda), caminando (las conexiones salen en la caminata, no en la silla) y se <b>consolidan al dormir</b>: lo que no duerme, no se guarda.</p>
             <span class="etq" id="contNodos">0 / 0 nodos</span>
           </div>
+        </div>
+
+        <div id="p-mesa" hidden>
+          <div class="fila" style="margin-bottom:10px">
+            <button class="btn" id="btnMesa">Pensarlo con Claude y Codex</button>
+            <span class="nota" id="notaMesa" style="flex:1; min-width:150px"></span>
+          </div>
+          <div id="mesa"></div>
         </div>
 
         <div id="p-proto" hidden>
@@ -285,6 +360,10 @@ const S = {
   log: [],
   burbujas: [],
   pos: {x:5.3, y:1.6, dir:1, estado:"pc", tRuta:0, ruta:null},
+  // la meta que le dictas, partida en pasos, y quién le ayudó a pensarla
+  plan: {meta:"", pasos:[], activo:0, estado:"vacío", riesgo:"", fuente:"", pensando:false},
+  mesa: [],                                   // las voces de Claude y de Codex
+  timer: {bloque:25, descanso:5, queda:25*60, fase:"listo", corriendo:false, bloques:0, resto:0},
 };
 
 const reloj = () => {
@@ -376,6 +455,10 @@ const ACC = [
   {id:"quet",    ic:"🌙", nm:"Quetiapina", min:1, est:"pie", ds:"cola de 7 h"},
   {id:"cafe",    ic:"☕", nm:"Café", min:6, est:"pie", ds:"bloquea adenosina"},
 
+  {g:"La meta"},
+  {id:"paso",    ic:"🎯", nm:"Trabajar el paso actual", min:30, est:"pc", ds:"lo que dice el plan"},
+  {id:"mesa",    ic:"🤝", nm:"Pensarlo con Claude y Codex", min:9, est:"pc", ds:"dos ángulos del mismo paso"},
+
   {g:"El sistema"},
   {id:"sistema", ic:"⚙️", nm:"Construir el sistema", min:40, est:"pc",
    ds:"con Claude · apalanca todo"},
@@ -399,7 +482,12 @@ function puede(id) {
   if (id === "quet") return S.dosis.filter(d=>d.tipo==="quet" && d.t > (dia()-1)*1440).length < 1;
   if (id === "correr")  return S.n.energia > 22;
   if (id === "caminar") return S.n.energia > 8;
+  if (id === "paso" || id === "mesa") return !!pasoActual();
   return true;
+}
+function pasoActual() {
+  const p = S.plan.pasos[S.plan.activo];
+  return p && p.hecho < 100 ? p : null;
 }
 
 function empieza(id) {
@@ -408,6 +496,7 @@ function empieza(id) {
   // el sistema construido acorta el trabajo: eso es el apalancamiento
   if (["editar","replicar"].includes(id)) dur *= lerp(1, .52, S.neg.sistema/100);
   if (id === "dormir") dur = 60 * clamp(4 + S.deudaSueno*6 + (1-S.n.sueno/100)*3, 3, 9.5);
+  if (id === "paso") { const p = pasoActual(); if (!p) return; dur = p.minutos * (1 - p.hecho/100); }
 
   S.accion = {id, ini: S.min, fin: S.min + dur, dur};
   S.pos.estado = a.est;
@@ -482,6 +571,15 @@ function efectoAccion(id, dt) {
       if (Math.random() < .0055*dt*trabajo) desbloquea("andromeda");
       break;
 
+    // el paso del plan: hace por dentro el trabajo de su tipo y además avanza
+    case "paso": {
+      const p = pasoActual();
+      if (!p) break;
+      efectoAccion(p.accion, dt);
+      p.hecho = Math.min(100, p.hecho + (100/p.minutos) * dt * clamp(trabajo, .05, 1.4));
+      break;
+    }
+    case "mesa": break;      // se resuelve al terminar
     case "vender":  break;   // se resuelve al terminar
     case "computra":break;
     case "scroll":
@@ -495,6 +593,26 @@ function efectoAccion(id, dt) {
 
 function terminaAccion(id) {
   const trabajo = S.r.pfc * S.r.estriado * 2.2;
+  if (id === "paso") {
+    const p = pasoActual();
+    if (p && p.hecho >= 99) {
+      p.hecho = 100;
+      S.plan.activo++;
+      S.amenaza = Math.max(0, S.amenaza - .06);
+      S.n.animo = clamp(S.n.animo + 5, 0, 100);
+      bitacora("Paso terminado: " + p.titulo, "b");
+      burbuja("✓ " + p.titulo, "bien");
+      desbloquea("sistema");
+      if (!pasoActual()) {
+        S.plan.estado = "hecho";
+        S.n.animo = clamp(S.n.animo + 12, 0, 100);
+        bitacora("META CUMPLIDA — " + S.plan.meta, "b");
+        burbuja("meta cumplida", "bien");
+      }
+    }
+    pintaPlan();
+  }
+  if (id === "mesa") { resuelveMesa(); }
   if (id === "correr") {
     S.bdnf = 150;                                   // ventana de aprendizaje
     S.q.cort = Math.max(0, S.q.cort - .22);         // el rebote va hacia abajo
@@ -683,8 +801,14 @@ function decide() {
   if (surv) {
     u.scroll = 1.4; u.metricas = 1.1; u.editar = .35; u.sistema = .2;
     u.vender = .1; u.computra = .15; u.andro = .15; u.caminar = .6; u.respirar = .8;
+    if (pasoActual()) u.paso = .35;      // con la amígdala arriba, ni el plan lo mueve
   } else {
     const foco = S.r.pfc * S.r.estriado;
+    // el plan manda: si hay un paso abierto, es lo que hace
+    if (pasoActual()) {
+      u.paso = 1.7 + foco * 1.2;
+      u.mesa = (pasoActual().pensado ? .1 : .8) + (1 - foco) * .6;
+    }
     u.sistema  = .55 + foco*1.5;
     u.editar   = .45 + (S.neg.clientes>0 ? .9 : .1) + (S.neg.ingresos < 2000 ? .5 : 0);
     u.replicar = .40 + foco*.9;
@@ -877,7 +1001,9 @@ function dibujaCuarto(tf) {
   const pantalla = cx.createLinearGradient(P1[0],P1[1],P3[0],P3[1]);
   const app = S.accion ? S.accion.id : "";
   const tono = app === "blender" ? [70,110,160] : app === "andro" ? [120,90,200] :
-               app === "scroll" ? [190,80,120] : [60,150,120];
+               app === "scroll" ? [190,80,120] :
+               (app === "mesa" || S.mesaPidiendo) ? [110,95,205] :
+               app === "paso" ? [55,175,120] : [60,150,120];
   pantalla.addColorStop(0, "rgba(" + tono.map(c=>Math.round(c*brillo)).join(",") + ",1)");
   pantalla.addColorStop(1, "rgba(" + tono.map(c=>Math.round(c*brillo*.45)).join(",") + ",1)");
   poly([P1,P2,P3,P4], pantalla);
@@ -1125,11 +1251,17 @@ function pintaCentro() {
   $("#estadoResumen").textContent = "deuda de sueño " + Math.round(S.deudaSueno*100) + "% · amenaza " + Math.round(S.amenaza*100) + "%";
 
   const a = S.accion ? ACCID[S.accion.id] : null;
-  $("#haciendo").textContent = a ? a.nm : "Sin nada — decidiendo";
+  const p = pasoActual();
+  $("#haciendo").textContent = !a ? "Sin nada — decidiendo"
+    : (a.id === "paso" && p) ? p.titulo
+    : a.id === "mesa" ? "Leyendo lo que le dijeron Claude y Codex"
+    : a.nm;
   $("#progAcc").style.width = S.accion ? (((S.min - S.accion.ini)/S.accion.dur)*100).toFixed(1) + "%" : "0%";
   $("#cola").textContent = S.cola.length ? "cola: " + S.cola.map(c=>ACCID[c].nm).join(" → ") : "sin cola";
 
-  $("#burbuja").innerHTML = S.burbujas.filter(x=>x.hasta > S.min)
+  const meta = (S.plan.estado === "listo" && p)
+    ? '<span class="chip bien">🎯 ' + (p.titulo.length > 44 ? p.titulo.slice(0,42) + "…" : p.titulo) + '</span>' : "";
+  $("#burbuja").innerHTML = meta + S.burbujas.filter(x=>x.hasta > S.min)
     .map(x => '<span class="chip ' + x.clase + '">' + x.txt + '</span>').join("");
 
   const modo = $("#modo");
@@ -1152,6 +1284,7 @@ function pintaAcciones() {
     cont.dataset.listo = "1";
     cont.addEventListener("click", ev => {
       const b = ev.target.closest(".acc"); if (!b) return;
+      if (b.dataset.a === "mesa") return pideMesa();      // primero se consulta, luego se lee
       S.autonomo = false;
       if (S.accion) S.cola.push(b.dataset.a); else empieza(b.dataset.a);
       $("#pistaAcc").textContent = "tú tomaste el control · doble clic aquí para devolvérselo";
@@ -1206,7 +1339,7 @@ function pintaLog() {
 /* pestañas */
 document.querySelectorAll('.tabs button').forEach(b => b.addEventListener("click", () => {
   document.querySelectorAll('.tabs button').forEach(o => o.setAttribute("aria-selected", String(o === b)));
-  for (const t of ["grafo","proto","negocio","log"]) $("#p-" + t).hidden = (t !== b.dataset.t);
+  for (const t of ["grafo","mesa","proto","negocio","log"]) $("#p-" + t).hidden = (t !== b.dataset.t);
 }));
 document.querySelectorAll('.vel button').forEach(b => b.addEventListener("click", () => {
   S.vel = +b.dataset.v;
@@ -1214,11 +1347,279 @@ document.querySelectorAll('.vel button').forEach(b => b.addEventListener("click"
 }));
 
 /* ═══════════════════════════════════════════════════════════════════════
+   12b. LA META, EL PLAN Y LA MESA (Claude + Codex)
+   ═══════════════════════════════════════════════════════════════════════ */
+let SAMPLE = null;          // se llena si este visor deja preguntarle a Claude
+(async () => {
+  try { SAMPLE = (window.claude && claude.use) ? await claude.use("sample") : null; }
+  catch (e) { SAMPLE = null; }
+  cabeceraMesa();
+})();
+
+const ACC_PLAN = ["sistema","replicar","editar","blender","andro","vender","computra"];
+const NOMBRE_ACC = {sistema:"construir", replicar:"replicar", editar:"editar",
+                    blender:"Blender", andro:"Andromeda", vender:"vender", computra:"postular"};
+
+function cabeceraMesa() {
+  $("#notaMesa").textContent = SAMPLE
+    ? "Las dos voces las escribe Claude con encargos distintos: el rol Claude ve estructura y estrategia, el rol Codex ve implementación y comandos. Cada consulta te la cobra tu propia cuenta."
+    : "Sin conexión a Claude en esta vista: la mesa trabaja con su propio repertorio, que es más corto pero no falla.";
+}
+
+/* ── el plan: él busca cómo llegar a la meta que le dictaste ──────────── */
+async function buscaPlan() {
+  const meta = ($("#meta").value || "").trim();
+  if (!meta || S.plan.pensando) return;
+  S.plan.meta = meta; S.plan.pensando = true; S.plan.estado = "pensando";
+  bitacora("Se puso a buscar cómo: «" + meta + "»", "i");
+  burbuja("buscando cómo…");
+  pintaPlan();
+
+  let crudo = null;
+  if (SAMPLE) {
+    try {
+      crudo = await SAMPLE.json(
+        "Eres el copiloto de un editor de video mexicano. Vende edición y publicidad a $500 al mes, " +
+        "replica reels de Instagram para ofrecer sus servicios, lleva un año construyendo un sistema " +
+        "para producir video en serie con Claude y Blender, estudia el algoritmo Andromeda de Meta " +
+        "(el creativo es la segmentación) y postula en Computrabajo. Trabaja solo, con TDAH, en bloques.\n\n" +
+        "SU META AHORA: \"" + meta + "\"\n\n" +
+        "Devuelve SOLO este JSON, sin texto alrededor:\n" +
+        '{"pasos":[{"titulo":"...","porque":"...","minutos":30,"accion":"' + ACC_PLAN.join('|') + '"}],"riesgo":"..."}\n' +
+        "Entre 4 y 6 pasos. Cada título es una acción concreta que puede empezar hoy frente a la " +
+        "computadora, en español de México, sin relleno ni verbos vacíos. 'porque' dice en una línea " +
+        "qué desbloquea ese paso. 'minutos' entre 20 y 90. 'riesgo' es la forma más probable de que " +
+        "esta meta se le caiga.",
+        {modelTier: "default"});
+    } catch (e) { crudo = null; }
+  }
+  const local = !crudo || !Array.isArray(crudo.pasos) || !crudo.pasos.length;
+  if (local) crudo = planLocal(meta);
+
+  S.plan.fuente = local ? "local" : "claude";
+  S.plan.pasos = crudo.pasos.slice(0, 6).map(p => ({
+    titulo: String(p.titulo || "Paso").slice(0, 90),
+    porque: String(p.porque || "").slice(0, 170),
+    minutos: Math.round(clamp(+p.minutos || 30, 15, 90)),
+    accion: ACC_PLAN.includes(p.accion) ? p.accion : "sistema",
+    hecho: 0, pensado: false,
+  }));
+  S.plan.riesgo = String(crudo.riesgo || "");
+  S.plan.activo = 0; S.plan.estado = "listo"; S.plan.pensando = false;
+  bitacora("Plan de " + S.plan.pasos.length + " pasos" + (local ? " (de su propio repertorio)" : " pensado con Claude"), "b");
+  pintaPlan();
+  if (!S.accion) { S.autonomo = true; empieza("paso"); }
+}
+
+// Sin conexión: arma el plan con lo que ya sabe de su negocio.
+function planLocal(meta) {
+  const m = meta.toLowerCase();
+  const tiene = (...ll) => ll.some(l => m.includes(l));
+  const P = [];
+  if (tiene("cliente", "vender", "500", "publicidad", "dinero", "cobrar")) {
+    P.push({titulo:"Hacer la lista de 20 negocios que ya te vieron", porque:"Prospectar en frío es lo caro; el que ya te conoce contesta.", minutos:25, accion:"vender"});
+    P.push({titulo:"Grabar un reel de muestra con el nombre del negocio", porque:"El creativo específico es lo que Andromeda usa para repartir.", minutos:45, accion:"replicar"});
+    P.push({titulo:"Mandar la oferta de $500 a los 20", porque:"Mandar baja el miedo; revisar lo sube.", minutos:30, accion:"vender"});
+  } else if (tiene("sistema", "automat", "plantilla", "serie", "escalar")) {
+    P.push({titulo:"Escribir el guion del paso que hoy haces a mano", porque:"Lo que no está escrito no se puede repetir ni delegar.", minutos:40, accion:"sistema"});
+    P.push({titulo:"Dejarlo corriendo con un solo comando", porque:"Si necesita cinco pasos, en modo supervivencia no lo vas a usar.", minutos:50, accion:"sistema"});
+    P.push({titulo:"Pasar un video viejo por el sistema entero", porque:"Un caso real encuentra lo que la teoría no.", minutos:45, accion:"editar"});
+  } else if (tiene("reel", "instagram", "alcance", "replic", "video")) {
+    P.push({titulo:"Elegir 3 reels que ya funcionaron y despiezar su estructura", porque:"Replicar es copiar la estructura, no el contenido.", minutos:30, accion:"replicar"});
+    P.push({titulo:"Rehacer uno con tu material", porque:"Volumen y variedad de creativos es la ventaja que premia Andromeda.", minutos:45, accion:"replicar"});
+    P.push({titulo:"Publicar y no tocarlo en 48 horas", porque:"Cada edición reinicia la fase de aprendizaje.", minutos:20, accion:"andro"});
+  } else if (tiene("trabajo", "empleo", "computrabajo", "vacante", "cv")) {
+    P.push({titulo:"Armar un portafolio de una sola página", porque:"Con 200 candidatos, lo único que te separa es lo que se ve en 10 segundos.", minutos:50, accion:"sistema"});
+    P.push({titulo:"Postular a 10 vacantes con el enlace del portafolio", porque:"Postular es barato; esperar es lo que cuesta.", minutos:40, accion:"computra"});
+    P.push({titulo:"Escribirle directo a 5 empresas que no publicaron vacante", porque:"Ahí no hay 200 postulando.", minutos:30, accion:"vender"});
+  } else {
+    P.push({titulo:"Escribir en una línea cómo se ve cumplida", porque:"Si no se puede escribir en una línea, no es una meta, es un deseo.", minutos:20, accion:"sistema"});
+    P.push({titulo:"Partirla en el trozo más chico que sirva solo", porque:"Un paso que cabe en un bloque es un paso que sí se empieza.", minutos:35, accion:"sistema"});
+    P.push({titulo:"Hacer ese trozo hoy, aunque salga feo", porque:"Lo que baja la amenaza es entregar, no planear mejor.", minutos:45, accion:"editar"});
+  }
+  P.push({titulo:"Guardar lo aprendido como nodo antes de dormir", porque:"Lo que no se consolida durmiendo, mañana no está.", minutos:20, accion:"andro"});
+  return {pasos:P, riesgo:"Que un visto sin respuesta te meta en modo supervivencia y el plan se quede a medias."};
+}
+
+/* ── la mesa: dos ángulos del mismo paso ──────────────────────────────── */
+async function pideMesa() {
+  const p = pasoActual();
+  if (!p || S.mesaPidiendo) return;
+  S.mesaPidiendo = true;
+  S.mesa.unshift({rol:"el", txt:"¿Cómo le entro a: " + p.titulo + "?"});
+  pintaMesa();
+
+  let r = null;
+  if (SAMPLE) {
+    try {
+      r = await SAMPLE.json(
+        "Un editor de video mexicano que trabaja solo con Claude y Blender está en este paso de su meta.\n" +
+        "META: " + S.plan.meta + "\nPASO: " + p.titulo + "\nPOR QUÉ: " + p.porque + "\n\n" +
+        "Dale DOS ángulos distintos del mismo paso, sin repetirse. Devuelve SOLO JSON:\n" +
+        '{"claude":{"angulo":"...","clave":"..."},"codex":{"angulo":"...","comando":"..."}}\n' +
+        "El rol CLAUDE ve estructura, estrategia y qué escribir; 'clave' es la frase que decide el paso.\n" +
+        "El rol CODEX ve implementación: qué automatizar y con qué; 'comando' es UNA línea de terminal " +
+        "o de script realista (bash, python o ffmpeg), sin inventar herramientas que no existen.\n" +
+        "Español de México, dos o tres frases por ángulo.",
+        {modelTier: "default"});
+    } catch (e) { r = null; }
+  }
+  if (!r || !r.claude) {
+    r = {claude:{angulo:"Parte el paso hasta que quepa en un bloque de " + S.timer.bloque +
+                 " minutos. Lo que no cabe, no se empieza: se pospone.",
+                 clave:"Entregar feo hoy vale más que entregar bien la semana que viene."},
+         codex:{angulo:"Lo que vas a repetir más de tres veces, guárdalo como script desde la primera.",
+                comando:"python3 _sistema.py --paso \"" + p.titulo.slice(0,32) + "\" --salida _video/"}};
+  }
+  S.mesa.unshift({rol:"codex", txt:String(r.codex && r.codex.angulo || ""), code:String(r.codex && r.codex.comando || "")});
+  S.mesa.unshift({rol:"claude", txt:String(r.claude.angulo || ""), code:"", clave:String(r.claude.clave || "")});
+  if (S.mesa.length > 24) S.mesa.length = 24;
+  S.mesaPidiendo = false;
+  S.mesaPendiente = true;
+  pintaMesa();
+  if (!S.accion) empieza("mesa"); else if (!S.cola.includes("mesa")) S.cola.unshift("mesa");
+}
+// lo que la consulta le deja al personaje cuando acaba de leerla
+function resuelveMesa() {
+  const p = pasoActual();
+  if (p && !p.pensado) {
+    p.pensado = true;
+    p.minutos = Math.max(15, Math.round(p.minutos * .8));
+    bitacora("Pensó el paso con las dos voces: le quitó un 20% de camino", "i");
+    S.skill.ads = Math.min(1, S.skill.ads + .01);
+    if (Math.random() < .55) desbloquea("sistema");
+    pintaPlan();
+  }
+  S.mesaPendiente = false;
+}
+
+function pintaPlan() {
+  const P = S.plan;
+  $("#planEstado").textContent =
+    P.estado === "pensando" ? "buscando cómo…"
+    : P.estado === "hecho" ? "meta cumplida"
+    : P.pasos.length ? (P.pasos.filter(x=>x.hecho>=100).length + " de " + P.pasos.length + " pasos · " + (P.fuente === "claude" ? "plan de Claude" : "plan propio"))
+    : "sin plan todavía";
+  if (!P.pasos.length) { $("#pasos").innerHTML = ""; return; }
+  $("#pasos").innerHTML = P.pasos.map((p, i) => {
+    const hecho = p.hecho >= 100, activo = i === P.activo && !hecho;
+    return '<div class="paso' + (hecho ? " hecho" : "") + (activo ? " activo" : "") + '">' +
+      '<span class="num">' + (hecho ? "✓" : String(i+1).padStart(2,"0")) + '</span>' +
+      '<span class="tt">' + p.titulo + '</span>' +
+      '<span class="mm">' + p.minutos + ' min · ' + NOMBRE_ACC[p.accion] + (p.pensado ? " · pensado" : "") + '</span>' +
+      '<span class="pq">' + p.porque + '</span>' +
+      (hecho ? "" : '<span class="barra"><i style="width:' + p.hecho.toFixed(1) + '%; background:' +
+        (activo ? "var(--plumbob)" : "#3D4666") + '"></i></span>') +
+      '</div>';
+  }).join("") + (P.riesgo ? '<p class="nota" style="margin-top:9px">⚠ Riesgo: ' + P.riesgo + '</p>' : "");
+}
+function pintaMesa() {
+  $("#mesa").innerHTML = S.mesa.length ? S.mesa.map(v =>
+    '<div class="voz ' + v.rol + '"><b>' + (v.rol === "claude" ? "Claude · estructura" :
+      v.rol === "codex" ? "Codex · implementación" : "él") + '</b>' +
+    '<p>' + v.txt + '</p>' +
+    (v.clave ? '<p style="color:var(--tinta)">« ' + v.clave + ' »</p>' : "") +
+    (v.code ? '<code>' + v.code.replace(/</g,"&lt;") + '</code>' : "") + '</div>').join("")
+    : '<p class="nota">Sin plan no hay de qué hablar. Dale una meta, y aquí van a discutir el paso que tenga abierto: Claude por dónde empezarlo, Codex con qué automatizarlo.</p>';
+  $("#btnMesa").disabled = !pasoActual() || !!S.mesaPidiendo;
+  $("#btnMesa").textContent = S.mesaPidiendo ? "Pensando…" : "Pensarlo con Claude y Codex";
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   12c. EL TIMER DE BLOQUES — tiempo real, el mando que compartimos
+   ═══════════════════════════════════════════════════════════════════════ */
+const T = S.timer;
+try {
+  const g = JSON.parse(localStorage.getItem("modo-supervivencia") || "{}");
+  if (g.modo) $("#modoTimer").value = g.modo;
+  if (g.fecha === new Date().toDateString()) T.bloques = +g.bloques || 0;
+} catch (e) { /* sin almacenamiento: se empieza de cero */ }
+function guardaTimer() {
+  try {
+    localStorage.setItem("modo-supervivencia", JSON.stringify(
+      {modo: $("#modoTimer").value, bloques: T.bloques, fecha: new Date().toDateString()}));
+  } catch (e) { /* da igual */ }
+}
+function aplicaModo() {
+  const [b, d] = $("#modoTimer").value.split("/").map(Number);
+  T.bloque = b; T.descanso = d;
+  if (!T.corriendo) { T.fase = "listo"; T.queda = b*60; }
+  guardaTimer(); pintaTimer();
+}
+let audio = null;
+function pitido(alto) {
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = "sine"; o.frequency.value = alto ? 880 : 520;
+    g.gain.setValueAtTime(.0001, audio.currentTime);
+    g.gain.exponentialRampToValueAtTime(.16, audio.currentTime + .02);
+    g.gain.exponentialRampToValueAtTime(.0001, audio.currentTime + .6);
+    o.connect(g).connect(audio.destination); o.start(); o.stop(audio.currentTime + .62);
+  } catch (e) { /* sin sonido y ya */ }
+}
+function arrancaTimer() {
+  if (T.fase === "listo" || T.fase === "fin") { T.fase = "bloque"; T.queda = T.bloque*60; }
+  T.corriendo = true; T.resto = 0;
+  if (S.vel === 0) { S.vel = 1; document.querySelectorAll('.vel button').forEach(o => o.setAttribute("aria-pressed", String(o.dataset.v === "1"))); }
+  if (T.fase === "bloque") entraAlBloque();
+  pintaTimer();
+}
+function pausaTimer() { T.corriendo = false; pintaTimer(); }
+function entraAlBloque() {
+  S.autonomo = true;
+  if (pasoActual()) { S.cola.length = 0; if (!S.accion || S.accion.id !== "paso") empieza("paso"); }
+  bitacora("Bloque de " + T.bloque + " min: los dos trabajando", "b");
+  burbuja("bloque de " + T.bloque + " min", "bien");
+}
+function terminaFase() {
+  if (T.fase === "bloque") {
+    T.bloques++; guardaTimer(); pitido(true);
+    T.fase = "descanso"; T.queda = T.descanso*60;
+    bitacora("Bloque " + T.bloques + " terminado. Los dos nos levantamos", "b");
+    S.cola.length = 0;
+    if (S.accion && ["paso","mesa","sistema","editar","replicar","blender","andro"].includes(S.accion.id)) S.accion = null;
+    empieza(S.n.energia > 30 && S.n.hambre > 35 ? "caminar" : (S.n.hambre <= 35 ? "comer" : "agua"));
+    document.title = "descanso · Modo Supervivencia";
+  } else {
+    pitido(false);
+    T.fase = "bloque"; T.queda = T.bloque*60;
+    if (S.accion && ["caminar","agua","sol","respirar"].includes(S.accion.id)) S.accion = null;
+    entraAlBloque();
+    document.title = "bloque · Modo Supervivencia";
+  }
+  pintaTimer();
+}
+function tictac(msReales) {
+  if (!T.corriendo) return;
+  T.resto += msReales;
+  while (T.resto >= 1000) { T.resto -= 1000; T.queda--; if (T.queda <= 0) { terminaFase(); return; } }
+}
+function pintaTimer() {
+  const m = Math.max(0, Math.floor(T.queda/60)), s = Math.max(0, T.queda % 60);
+  $("#cuenta").textContent = String(m).padStart(2,"0") + ":" + String(s).padStart(2,"0");
+  $("#fase").textContent = T.fase === "descanso" ? "descanso · levántate" :
+                           T.corriendo ? "bloque de trabajo" : "listo para arrancar";
+  $("#timer").className = "timer" + (T.corriendo ? (T.fase === "descanso" ? " descansando" : " corriendo") : "");
+  $("#btnTimer").textContent = T.corriendo ? "Pausar" : (T.fase === "listo" ? "Empezar bloque" : "Seguir");
+  $("#bloquesHoy").innerHTML = Array.from({length: Math.max(4, T.bloques)},
+    (_, i) => '<i class="' + (i < T.bloques ? "on" : "") + '"></i>').join("") ;
+}
+
+$("#btnPlan").addEventListener("click", buscaPlan);
+$("#meta").addEventListener("keydown", ev => { if (ev.key === "Enter") buscaPlan(); });
+$("#btnMesa").addEventListener("click", pideMesa);
+$("#btnTimer").addEventListener("click", () => T.corriendo ? pausaTimer() : arrancaTimer());
+$("#btnSalta").addEventListener("click", () => { if (T.corriendo) terminaFase(); });
+$("#modoTimer").addEventListener("change", aplicaModo);
+
+/* ═══════════════════════════════════════════════════════════════════════
    13. BUCLE
    ═══════════════════════════════════════════════════════════════════════ */
 let últ = performance.now(), acumula = 0, cuadro = 0, refresco = 0;
 function bucle(t) {
   const real = Math.min(100, t - últ); últ = t; cuadro++;
+  tictac(real);                                  // el timer va en tiempo real, no simulado
   acumula += (real/250) * S.vel;                 // 1× = 1 minuto simulado cada 250 ms
 
   let pasos = 0;
@@ -1248,15 +1649,17 @@ function bucle(t) {
 
   dibujaCuarto(cuadro);
   fuerzas(); dibujaGrafo();
-  if (cuadro % 6 === 0) { pintaIzquierda(); pintaCentro(); pintaAcciones(); dibujaPK(); }
+  if (cuadro % 6 === 0) { pintaIzquierda(); pintaCentro(); pintaAcciones(); dibujaPK(); pintaTimer(); }
+  if (cuadro % 18 === 0 && S.plan.pasos.length) pintaPlan();
   if (cuadro % 30 === 0) { pintaNegocio(); $("#contNodos").textContent =
     NODOS.filter(n=>n.on).length + " / " + NODOS.length + " nodos · " + NODOS.filter(n=>n.on&&n.frágil).length + " frágiles"; }
   requestAnimationFrame(bucle);
 }
 
 pintaProtos(); pintaAcciones(); pintaNegocio(); pintaFicha(nodo("andromeda"));
+aplicaModo(); pintaTimer(); pintaPlan(); pintaMesa();
 bitacora("Despierta. Quetiapina de anoche todavía encima; el metilfenidato aún no.", "");
-bitacora("Una sola meta escrita en la pared. Todo lo demás compite contra ella.", "i");
+bitacora("Dale una meta y arranca un bloque: trabajan los dos a la vez.", "i");
 requestAnimationFrame(bucle);
 </script>
 </body></html>
