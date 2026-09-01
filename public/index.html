@@ -140,8 +140,21 @@ button{font-family:inherit; color:inherit}
 #pk{display:block; width:100%; height:auto}
 .leyenda{display:flex; gap:12px; font-family:var(--f-dato); font-size:11px; color:var(--tinta2); margin-top:6px}
 .leyenda i{display:inline-block; width:9px; height:2.5px; border-radius:2px; vertical-align:middle; margin-right:5px}
-.meta input{width:100%; background:#0D1120; border:1px solid var(--linea); border-radius:7px;
-  padding:8px 10px; color:var(--tinta); font-family:var(--f-display); font-size:14px; font-weight:700}
+.meta textarea{width:100%; background:#0D1120; border:1px solid var(--linea); border-radius:7px;
+  padding:9px 11px; color:var(--tinta); font-family:var(--f-display); font-size:14.5px; font-weight:700;
+  line-height:1.45; resize:vertical; min-height:64px; max-height:340px}
+.meta textarea::placeholder{font-weight:500; color:var(--tinta3)}
+/* ── repos ── */
+.repo{display:grid; grid-template-columns:1fr auto; gap:2px 8px; width:100%; text-align:left;
+  background:var(--panel2); border:1px solid var(--linea); border-radius:8px; padding:8px 10px;
+  margin-bottom:6px; cursor:pointer}
+.repo:hover{border-color:#3D4666}
+.repo[aria-pressed="true"]{border-color:var(--plumbob); background:#101E17}
+.repo .nm{font-size:13px; font-weight:600}
+.repo .ds{font-size:11.5px; color:var(--tinta3); grid-column:1/-1}
+.repo .et{font-family:var(--f-dato); font-size:10px; color:var(--tinta3)}
+.buscador{width:100%; background:#0D1120; border:1px solid var(--linea); border-radius:7px;
+  padding:8px 10px; color:var(--tinta); font-family:var(--f-texto); font-size:13px; margin-bottom:8px}
 /* ── timer de bloques: el mando que compartimos ──────────────────────── */
 .timer{display:flex; align-items:center; gap:14px; flex-wrap:wrap;
   background:linear-gradient(180deg,#171D2E,#121626); border:1px solid var(--linea);
@@ -306,9 +319,12 @@ button{font-family:inherit; color:inherit}
 
       <div class="caja meta">
         <h3>La meta <b id="planEstado">sin plan todavía</b></h3>
-        <div class="fila">
-          <input id="meta" value="Que el sistema haga los videos sin mí" maxlength="90" aria-label="La meta">
+        <textarea id="meta" rows="3" aria-label="La meta, tan larga como quieras"
+          placeholder="Escríbele la meta con todo el detalle que quieras: qué quieres, dónde vive, qué ya existe y qué no debe romperse.">Que el sistema haga los videos sin mí</textarea>
+        <div class="fila" style="margin-top:8px">
           <button class="btn" id="btnPlan">Que busque cómo</button>
+          <button class="btn fantasma" id="btnTareaNexus">Cargar la tarea de Nexus</button>
+          <span class="nota" id="ctxAviso"></span>
         </div>
         <p class="nota" style="margin-top:7px" id="notaPlan">Escríbele la meta que tengas lista. La parte en pasos y se pone a trabajarlos — cada paso mueve el negocio de verdad, no es una lista de adorno. Una sola meta a la vez: dos cuestan más que el doble.</p>
         <div id="pasos"></div>
@@ -326,6 +342,7 @@ button{font-family:inherit; color:inherit}
         <div class="tabs" role="tablist">
           <button role="tab" aria-selected="true" data-t="grafo">Grafo</button>
           <button role="tab" aria-selected="false" data-t="mesa">Mesa</button>
+          <button role="tab" aria-selected="false" data-t="repos">Repos</button>
           <button role="tab" aria-selected="false" data-t="proto">Protocolos</button>
           <button role="tab" aria-selected="false" data-t="negocio">Negocio</button>
           <button role="tab" aria-selected="false" data-t="log">Bitácora</button>
@@ -346,6 +363,13 @@ button{font-family:inherit; color:inherit}
             <span class="nota" id="notaMesa" style="flex:1; min-width:150px"></span>
           </div>
           <div id="mesa"></div>
+        </div>
+
+        <div id="p-repos" hidden>
+          <p class="nota" id="ghEstado" style="margin-bottom:8px">Mirando si hay GitHub…</p>
+          <input class="buscador" id="ghBusca" placeholder="filtrar repos" aria-label="Filtrar repos" hidden>
+          <div id="ghLista"></div>
+          <div id="ghFicha"></div>
         </div>
 
         <div id="p-proto" hidden>
@@ -1379,7 +1403,7 @@ function pintaLog() {
 /* pestañas */
 document.querySelectorAll('.tabs button').forEach(b => b.addEventListener("click", () => {
   document.querySelectorAll('.tabs button').forEach(o => o.setAttribute("aria-selected", String(o === b)));
-  for (const t of ["grafo","mesa","proto","negocio","log"]) $("#p-" + t).hidden = (t !== b.dataset.t);
+  for (const t of ["grafo","mesa","repos","proto","negocio","log"]) $("#p-" + t).hidden = (t !== b.dataset.t);
 }));
 document.querySelectorAll('.vel button').forEach(b => b.addEventListener("click", () => {
   S.vel = +b.dataset.v;
@@ -1436,6 +1460,119 @@ async function piensa(prompt) {
   }
   return null;
 }
+
+/* ═══ sus GitHub: el servidor presta el token, la página sólo lee ═══════ */
+const GH = {ok:false, repos:[], sel:null, arbol:[], readme:"", cuentas:[]};
+async function ghArranca() {
+  try {
+    const c = new AbortController(); const t = setTimeout(() => c.abort(), 3000);
+    const r = await fetch("api/github", {signal:c.signal}); clearTimeout(t);
+    const d = r.ok ? await r.json() : {};
+    GH.ok = !!d.disponible; GH.cuentas = d.cuentas || [];
+  } catch (e) { GH.ok = false; }
+  if (!GH.ok) {
+    $("#ghEstado").innerHTML = "Sin acceso a GitHub desde esta vista. Se enciende sirviendo la página " +
+      "desde tu máquina con el token en el entorno:<br><code style=\"font-family:var(--f-dato);font-size:11.5px\">" +
+      "GITHUB_TOKEN_CHARLYFAVELA1=… npm start</code><br>Entonces él lee tus repos (árbol y archivos) " +
+      "y los mete en lo que piensa. Sin eso, trabaja con lo que ya sabe de tu sistema.";
+    $("#ctxAviso").textContent = "sin GitHub en esta vista";
+    return;
+  }
+  try {
+    const d = await (await fetch("api/github/repos")).json();
+    GH.repos = d.repos || [];
+  } catch (e) { GH.repos = []; }
+  $("#ghEstado").textContent = GH.repos.length + " repos de " + GH.cuentas.join(" y ") +
+    ". Elige en cuál va a trabajar: lo que tenga adentro entra en lo que piensa.";
+  $("#ghBusca").hidden = false;
+  pintaRepos();
+  let guardado = null;
+  try { guardado = JSON.parse(localStorage.getItem("modo-supervivencia-repo") || "null"); } catch (e) {}
+  if (guardado) eligeRepo(guardado, true);
+}
+function pintaRepos() {
+  const f = ($("#ghBusca").value || "").toLowerCase();
+  const v = GH.repos.filter(r => !f || (r.full_name + " " + (r.description||"")).toLowerCase().includes(f)).slice(0, 40);
+  $("#ghLista").innerHTML = v.map(r =>
+    '<button class="repo" data-r="' + r.full_name + '" aria-pressed="' + (GH.sel === r.full_name) + '">' +
+    '<span class="nm">' + r.name + '</span><span class="et">' + (r.private ? "privado" : "público") + '</span>' +
+    (r.description ? '<span class="ds">' + r.description.slice(0,110) + '</span>' : "") + '</button>').join("")
+    || '<p class="nota">Ningún repo con ese filtro.</p>';
+}
+async function eligeRepo(full, callado) {
+  GH.sel = full; GH.arbol = []; GH.readme = "";
+  try { localStorage.setItem("modo-supervivencia-repo", JSON.stringify(full)); } catch (e) {}
+  pintaRepos();
+  $("#ghFicha").innerHTML = '<p class="nota">Leyendo ' + full + '…</p>';
+  try {
+    const d = await (await fetch("api/github/arbol?repo=" + encodeURIComponent(full))).json();
+    GH.arbol = d.rutas || []; GH.readme = d.readme || "";
+  } catch (e) { /* se queda vacío */ }
+  const claves = GH.arbol.filter(p => /\.(html|js|mjs|py|json|md|yaml)$/.test(p)).slice(0, 40);
+  $("#ghFicha").innerHTML = '<div class="ficha"><h4>' + full + '</h4>' +
+    '<p>' + GH.arbol.length + ' archivos. Esto es lo que va a mirar cuando piense:</p>' +
+    '<p style="font-family:var(--f-dato); font-size:11px; color:var(--tinta3)">' +
+    claves.slice(0,18).join(" · ") + (claves.length > 18 ? " …" : "") + '</p></div>';
+  $("#ctxAviso").textContent = "trabaja sobre " + full;
+  if (!callado) bitacora("Le diste acceso al repo " + full, "i");
+}
+$("#ghBusca").addEventListener("input", pintaRepos);
+$("#ghLista").addEventListener("click", ev => {
+  const b = ev.target.closest(".repo"); if (b) eligeRepo(b.dataset.r);
+});
+ghArranca();
+
+/* ── lo que ya se sabe de Nexus, para que no lo vuelva a descubrir ────── */
+const CONTEXTO_NEXUS =
+"\n\nLO QUE YA SE SABE DE NEXUS (hechos medidos, no suposiciones — no los vuelvas a averiguar):\n" +
+"· NEXUS es una pestaña del panel `cartera`: repo charlyfavela1-eng/cartera (privado), archivo " +
+"public/nexus.html (~3900 líneas), servidor Node en server.js, desplegado en https://cartera-1.onrender.com/nexus.\n" +
+"· Ya existe el botón «Recortar fondo», pero sólo para UNA IMAGEN: MediaPipe ImageSegmenter en el navegador. " +
+"En esa máscara 0 = persona y 255 = fondo (medido sobre una foto real; al revés se borra a la persona sin dar error).\n" +
+"· Ya existe «Unir video»: canvas + MediaRecorder, todo en el navegador, porque en Render NO hay ffmpeg ni Python.\n" +
+"· Los SUBTÍTULOS hoy NO son del navegador: se piden al servidor (/api/subtitular-faltantes, /api/remate/<slug>), " +
+"y eso es justo lo que hoy obliga a tener el Codespace prendido.\n" +
+"· Juntar el segmentador con el canvas+MediaRecorder ES el recorte de video: reproducir, recortar cada cuadro y grabar.\n" +
+"· La máquina de Carlos NO tiene WebGL 2 y MediaPipe lo exige. Con los gestos hubo que hacer cascada " +
+"(MediaPipe → TensorFlow.js+WASM → movimiento puro). Cualquier cosa que dependa de WebGL 2 necesita respaldo.\n" +
+"· MediaRecorder saca .webm; WhatsApp NO reproduce webm con alfa (llega negro y parece roto). Hacen falta dos " +
+"salidas: transparente para editar y con fondo de color para mandar.\n" +
+"· Grabar reproduciendo tarda lo que dura el clip. WebCodecs (VideoDecoder/VideoEncoder) con un muxer de MP4 va " +
+"más rápido que tiempo real y saca H.264, que WhatsApp sí abre.\n" +
+"· rembg da mejor borde pero sólo corre en el Codespace, no en Render.\n" +
+"· En su propia cuenta ya hay dos referencias clonadas: OpenCut (alternativa a CapCut, editor en navegador) y " +
+"video-use (editar video con agentes).\n";
+
+const META_NEXUS =
+"Que Nexus edite video en el navegador, sin el Codespace.\n\n" +
+"Hoy recortar el fondo y poner subtítulos pasa por el servidor del Codespace: si no lo prendo, no hay edición. " +
+"Quiero que la pestaña Nexus (cartera-1.onrender.com/nexus, archivo public/nexus.html del repo cartera) lo haga " +
+"sola en el navegador: cargar un clip, recortarle el fondo cuadro por cuadro, transcribir el audio, quemarle los " +
+"subtítulos con la receta de siempre y dejar dos salidas — una transparente para editar y otra con fondo, en un " +
+"formato que WhatsApp sí abra.\n\n" +
+"No romper lo que ya funciona: unir video, la voz, los gestos y el botón que hace todo. Y tiene que aguantar mi " +
+"máquina, que no tiene WebGL 2.";
+
+// lo que el cerebro sabe cuando piensa: el repo elegido + lo de Nexus si viene al caso
+function contexto() {
+  let c = "";
+  const meta = ($("#meta") && $("#meta").value || "").toLowerCase();
+  if (/nexus|cartera|subtitul|fondo|navegador/.test(meta)) c += CONTEXTO_NEXUS;
+  if (GH.sel && GH.arbol.length) {
+    const claves = GH.arbol.filter(p => /\.(html|js|mjs|py|json|md|yaml)$/.test(p)).slice(0, 45);
+    c += "\n\nREPO EN EL QUE TRABAJA: " + GH.sel + " (" + GH.arbol.length + " archivos).\n" +
+         "Archivos: " + claves.join(", ") + "\n" +
+         (GH.readme ? "README (recortado): " + GH.readme.slice(0, 1200) + "\n" : "") +
+         "Los pasos que propongas deben nombrar archivos DE ESTA lista, no inventados.\n";
+  }
+  return c;
+}
+$("#btnTareaNexus").addEventListener("click", () => {
+  $("#meta").value = META_NEXUS;
+  $("#meta").focus();
+  bitacora("Tarea cargada: edición de video en el navegador, dentro de Nexus", "i");
+  if (GH.ok && !GH.sel) eligeRepo("charlyfavela1-eng/cartera");
+});
 
 /* ── el cerebro dibujado: quién empuja y quién apaga a quién ──────────── */
 const NODOS_CEREBRO = [
@@ -1611,7 +1748,7 @@ async function buscaPlan() {
   const meta = ($("#meta").value || "").trim();
   if (!meta || S.plan.pensando) return;
   S.plan.meta = meta; S.plan.pensando = true; S.plan.estado = "pensando";
-  bitacora("Se puso a buscar cómo: «" + meta + "»", "i");
+  bitacora("Se puso a buscar cómo: «" + meta.slice(0, 58).replace(/\n/g, " ") + (meta.length > 58 ? "…" : "") + "»", "i");
   burbuja("buscando cómo…");
   pintaPlan();
 
@@ -1626,7 +1763,7 @@ async function buscaPlan() {
         "Entre 4 y 6 pasos. Cada título es una acción concreta que puede empezar hoy frente a la " +
         "computadora, en español de México, sin relleno ni verbos vacíos. 'porque' dice en una línea " +
         "qué desbloquea ese paso. 'minutos' entre 20 y 90. 'riesgo' es la forma más probable de que " +
-        "esta meta se le caiga.");
+        "esta meta se le caiga." + contexto());
   const local = !crudo0 || !Array.isArray(crudo0.pasos) || !crudo0.pasos.length;
   const crudo = local ? planLocal(meta) : crudo0;
 
@@ -1650,6 +1787,14 @@ function planLocal(meta) {
   const m = meta.toLowerCase();
   const tiene = (...ll) => ll.some(l => m.includes(l));
   const P = [];
+  if (tiene("nexus", "navegador", "cartera")) {
+    P.push({titulo:"Probar el segmentador sobre UN cuadro de video en nexus.html", porque:"Antes de tocar nada: si MediaPipe no arranca sin WebGL 2, todo lo demás sobra.", minutos:40, accion:"sistema"});
+    P.push({titulo:"Unir el segmentador con el canvas + MediaRecorder que ya existe", porque:"Las dos piezas ya están en nexus.html: juntarlas ES el recorte de video.", minutos:60, accion:"sistema"});
+    P.push({titulo:"Sacar las dos salidas: alfa para editar y fondo de color para WhatsApp", porque:"WhatsApp no reproduce webm con alfa: llega negro y parece roto.", minutos:45, accion:"sistema"});
+    P.push({titulo:"Transcribir en el navegador y quemar los subtítulos con la receta", porque:"Es lo único que hoy obliga a tener el Codespace prendido.", minutos:75, accion:"sistema"});
+    P.push({titulo:"Medir un clip real de Marco de punta a punta y comparar con rembg", porque:"El borde del navegador es más basto: hay que saber cuánto, no suponerlo.", minutos:35, accion:"editar"});
+    return {pasos:P, riesgo:"Que su máquina sin WebGL 2 no corra el segmentador y el plan se caiga en el primer paso; por eso ese paso va primero."};
+  }
   if (tiene("cliente", "vender", "500", "publicidad", "dinero", "cobrar")) {
     P.push({titulo:"Hacer la lista de 20 negocios que ya te vieron", porque:"Prospectar en frío es lo caro; el que ya te conoce contesta.", minutos:25, accion:"vender"});
     P.push({titulo:"Grabar un reel de muestra con el nombre del negocio", porque:"El creativo específico es lo que Andromeda usa para repartir.", minutos:45, accion:"replicar"});
@@ -1691,7 +1836,7 @@ async function pideMesa() {
         "El rol CLAUDE ve estructura, estrategia y qué escribir; 'clave' es la frase que decide el paso.\n" +
         "El rol CODEX ve implementación: qué automatizar y con qué; 'comando' es UNA línea de terminal " +
         "o de script realista (bash, python o ffmpeg), sin inventar herramientas que no existen.\n" +
-        "Español de México, dos o tres frases por ángulo.");
+        "Español de México, dos o tres frases por ángulo." + contexto());
   if (!r || !r.claude) {
     r = {claude:{angulo:"Parte el paso hasta que quepa en un bloque de " + S.timer.bloque +
                  " minutos. Lo que no cabe, no se empieza: se pospone.",

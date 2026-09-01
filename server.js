@@ -20,6 +20,58 @@ const TIPO = { ".html":"text/html; charset=utf-8", ".css":"text/css", ".js":"tex
 const ESPERA_MS = 180000;      // un turno de codex puede tardar
 const TOPE_PROMPT = 32000;
 
+
+// ── Sus GitHub ────────────────────────────────────────────────────────────
+// Los tokens viven en el entorno del servidor, nunca en la página. Se aceptan
+// varios porque Carlos tiene tres cuentas y cada repo vive en una sola.
+const TOKENS = [
+  ["GITHUB_TOKEN_CHARLYFAVELA1", process.env.GITHUB_TOKEN_CHARLYFAVELA1],
+  ["GITHUB_TOKEN", process.env.GITHUB_TOKEN],
+  ["GITHUB_TOKEN_2", process.env.GITHUB_TOKEN_2],
+  ["GITHUB_TOKEN_3", process.env.GITHUB_TOKEN_3],
+].filter(([, v]) => !!v);
+const DUENO = new Map();          // full_name -> token que lo puede leer
+let CUENTAS = null;
+
+async function gh(token, ruta, crudo) {
+  const r = await fetch("https://api.github.com" + ruta, {
+    headers: {Authorization: "Bearer " + token, "User-Agent": "modo-supervivencia",
+              Accept: crudo ? "application/vnd.github.raw" : "application/vnd.github+json"},
+  });
+  if (!r.ok) throw new Error("GitHub " + r.status + " en " + ruta);
+  return crudo ? r.text() : r.json();
+}
+async function cuentas() {
+  if (CUENTAS) return CUENTAS;
+  CUENTAS = [];
+  for (const [, t] of TOKENS) {
+    try { CUENTAS.push((await gh(t, "/user")).login); } catch { /* token muerto */ }
+  }
+  return CUENTAS;
+}
+async function repos() {
+  const vistos = new Map();
+  for (const [, t] of TOKENS) {
+    try {
+      const lista = await gh(t, "/user/repos?per_page=100&sort=updated");
+      for (const r of lista) {
+        if (!vistos.has(r.full_name)) {
+          vistos.set(r.full_name, {name:r.name, full_name:r.full_name, private:r.private,
+                                   description:r.description, rama:r.default_branch});
+          DUENO.set(r.full_name, t);
+        }
+      }
+    } catch { /* siguiente cuenta */ }
+  }
+  return [...vistos.values()];
+}
+async function tokenDe(full) {
+  if (DUENO.has(full)) return DUENO.get(full);
+  await repos();
+  if (DUENO.has(full)) return DUENO.get(full);
+  return TOKENS.length ? TOKENS[0][1] : null;
+}
+
 let hayCodex = null;
 function detectaCodex() {
   if (hayCodex !== null) return Promise.resolve(hayCodex);
@@ -78,6 +130,40 @@ createServer(async (req, res) => {
       catch (e) { return json(res, 502, {error: String(e.message || e)}); }
     }
     return json(res, 405, {error:"usa GET o POST"});
+  }
+
+
+  if (url.pathname === "/api/github") {
+    return json(res, 200, {disponible: TOKENS.length > 0, cuentas: await cuentas()});
+  }
+  if (url.pathname === "/api/github/repos") {
+    if (!TOKENS.length) return json(res, 503, {error:"sin token de GitHub en el entorno"});
+    try { return json(res, 200, {repos: await repos()}); }
+    catch (e) { return json(res, 502, {error:String(e.message || e)}); }
+  }
+  if (url.pathname === "/api/github/arbol") {
+    const repo = url.searchParams.get("repo") || "";
+    if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return json(res, 400, {error:"repo inválido"});
+    try {
+      const t = await tokenDe(repo);
+      const info = await gh(t, "/repos/" + repo);
+      const arbol = await gh(t, "/repos/" + repo + "/git/trees/" + info.default_branch + "?recursive=1");
+      let readme = "";
+      try { readme = (await gh(t, "/repos/" + repo + "/readme", true)).slice(0, 4000); } catch { /* sin readme */ }
+      return json(res, 200, {
+        rutas: (arbol.tree || []).filter(x => x.type === "blob").map(x => x.path).slice(0, 1200),
+        rama: info.default_branch, readme,
+      });
+    } catch (e) { return json(res, 502, {error:String(e.message || e)}); }
+  }
+  if (url.pathname === "/api/github/archivo") {
+    const repo = url.searchParams.get("repo") || "", ruta = url.searchParams.get("ruta") || "";
+    if (!/^[\w.-]+\/[\w.-]+$/.test(repo) || !ruta || ruta.includes("..")) return json(res, 400, {error:"parámetros inválidos"});
+    try {
+      const t = await tokenDe(repo);
+      const texto = await gh(t, "/repos/" + repo + "/contents/" + ruta.split("/").map(encodeURIComponent).join("/"), true);
+      return json(res, 200, {texto: String(texto).slice(0, 80000)});
+    } catch (e) { return json(res, 502, {error:String(e.message || e)}); }
   }
 
   const rel = normalize(url.pathname === "/" ? "/index.html" : url.pathname).replace(/^(\.\.[/\\])+/, "");

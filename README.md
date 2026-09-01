@@ -41,6 +41,31 @@ prefrontal, la amígdala y la red por defecto la apagan), los **niveles que el
 paso exige** —foco, ganas y calma, cada uno con su marca de umbral— y los
 **consejos del sistema nervioso**, etiquetados para él, para ti o para los dos.
 
+## Acceso a sus GitHub
+
+Los tokens viven en el entorno del **servidor**, nunca en la página:
+
+    GITHUB_TOKEN_CHARLYFAVELA1=…  GITHUB_TOKEN=…  npm start
+
+Con eso la pestaña **Repos** lista todos los repos de todas las cuentas cuyo
+token esté puesto, y el que elijas entra en lo que él piensa: el árbol de
+archivos y el README van dentro del prompt, y los pasos que proponga tienen que
+nombrar archivos que existan de verdad. Endpoints: `GET /api/github`,
+`/api/github/repos`, `/api/github/arbol?repo=owner/name`,
+`/api/github/archivo?repo=owner/name&ruta=…`.
+
+Publicado en claude.ai no hay proxy ni tokens: ahí trabaja con lo que ya sabe.
+
+## La primera tarea: Nexus
+
+Trae cargada la tarea real —**que Nexus edite video en el navegador, sin el
+Codespace**— con el contexto ya medido: qué es Nexus (`public/nexus.html` del
+repo `cartera`, servido en cartera-1.onrender.com/nexus), que el segmentador de
+MediaPipe ya está ahí pero sólo para imagen, que en su máscara 0 = persona, que
+«Unir video» ya es canvas + MediaRecorder, que los subtítulos siguen pasando por
+el servidor, que su máquina no tiene WebGL 2, y que WhatsApp no reproduce webm
+con alfa. Eso es lo que no tiene que volver a descubrir.
+
 ## Qué modela
 
 - **Farmacocinética** (curva de Bateman): metilfenidato 10 mg (pico ~1.7 h) y
