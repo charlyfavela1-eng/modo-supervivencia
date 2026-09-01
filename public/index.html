@@ -1,0 +1,1262 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>:root{color-scheme:dark}html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Modo Supervivencia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Mundo visual único y deliberado: es una pantalla de juego, un cuarto de noche.
+   No hay tema claro — todo se pinta explícito para que no herede el fondo del host. */
+:root{
+  --noche:#0B0D14; --panel:#141826; --panel2:#1A1F30; --linea:#262C40;
+  --tinta:#ECEAF4; --tinta2:#A2A8C0; --tinta3:#6E7591;
+  --plumbob:#39E27A; --da:#E8A93A; --ne:#FF6A4D; --ht:#4FD3B8;
+  --cort:#FF5FA8; --aden:#8B7BFF; --alerta:#FF7A45; --bien:#39E27A;
+  --r:10px;
+  --f-display:"Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif;
+  --f-texto:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  --f-dato:"IBM Plex Mono",ui-monospace,SFMono-Regular,monospace;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--noche); color:var(--tinta); font-family:var(--f-texto);
+  font-size:14px; line-height:1.45; margin:0; min-height:100vh;
+  background-image:radial-gradient(1200px 600px at 70% -10%, #1B2136 0%, rgba(11,13,20,0) 60%);
+}
+h1,h2,h3,h4{font-family:var(--f-display); margin:0; text-wrap:balance; letter-spacing:-.01em}
+button{font-family:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--plumbob); outline-offset:2px; border-radius:6px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+
+.app{max-width:1560px; margin:0 auto; padding:14px 16px 26px; display:flex; flex-direction:column; gap:12px}
+
+/* ── barra de arriba ─────────────────────────────────────────────────── */
+.top{display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  background:linear-gradient(180deg,#171D2E,#121626); border:1px solid var(--linea);
+  border-radius:var(--r); padding:10px 14px}
+.marca{display:flex; align-items:baseline; gap:10px; margin-right:auto}
+.marca h1{font-size:20px; font-weight:800}
+.marca span{font-size:11px; color:var(--tinta3); font-family:var(--f-dato); text-transform:uppercase; letter-spacing:.09em}
+.reloj{font-family:var(--f-dato); font-size:19px; font-variant-numeric:tabular-nums; font-weight:600}
+.reloj small{display:block; font-size:10px; color:var(--tinta3); letter-spacing:.08em; text-transform:uppercase}
+.modo{font-family:var(--f-dato); font-size:11px; text-transform:uppercase; letter-spacing:.09em;
+  padding:5px 10px; border-radius:99px; border:1px solid; white-space:nowrap}
+.modo.foco{color:var(--plumbob); border-color:#2C6B47; background:#0F2418}
+.modo.surv{color:var(--cort); border-color:#63274A; background:#2A0F1E}
+.modo.sedado{color:var(--aden); border-color:#3D3670; background:#171436}
+.vel{display:flex; gap:4px; background:#0E1220; border:1px solid var(--linea); border-radius:8px; padding:3px}
+.vel button{background:none; border:0; padding:5px 9px; border-radius:6px; cursor:pointer;
+  font-family:var(--f-dato); font-size:12px; color:var(--tinta2)}
+.vel button[aria-pressed="true"]{background:var(--plumbob); color:#07130C; font-weight:600}
+
+/* ── rejilla ─────────────────────────────────────────────────────────── */
+.grid{display:grid; grid-template-columns:308px minmax(0,1fr) 372px; gap:12px; align-items:start}
+@media (max-width:1320px){.grid{grid-template-columns:294px minmax(0,1fr)} .col.der{grid-column:1/-1}}
+@media (max-width:900px){.grid{grid-template-columns:1fr} .col.izq{grid-column:1}}
+.col{display:flex; flex-direction:column; gap:12px; min-width:0}
+.caja{background:var(--panel); border:1px solid var(--linea); border-radius:var(--r); padding:12px}
+.caja > h3{font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--tinta3);
+  font-family:var(--f-dato); font-weight:500; margin-bottom:10px; display:flex; justify-content:space-between; gap:8px}
+.caja > h3 b{color:var(--tinta2); font-weight:600; letter-spacing:0; text-transform:none; font-family:var(--f-texto)}
+
+/* ── medidores ───────────────────────────────────────────────────────── */
+.med{display:grid; grid-template-columns:1fr auto; gap:2px 8px; margin-bottom:9px}
+.med:last-child{margin-bottom:0}
+.med .et{font-size:12px; color:var(--tinta2)}
+.med .vl{font-family:var(--f-dato); font-size:12px; font-variant-numeric:tabular-nums; color:var(--tinta)}
+.barra{grid-column:1/-1; height:7px; border-radius:4px; background:#0D1120; overflow:hidden; position:relative}
+.barra i{display:block; height:100%; border-radius:4px; transition:width .25s linear; background:var(--c,#666)}
+.barra.doble b{position:absolute; top:-2px; width:2px; height:11px; background:var(--tinta3); border-radius:1px}
+.nota{font-size:11.5px; color:var(--tinta3); line-height:1.4}
+
+/* ── escena ──────────────────────────────────────────────────────────── */
+.escena{position:relative; background:#0A0C14; border:1px solid var(--linea); border-radius:var(--r); overflow:hidden}
+#cuarto{display:block; width:100%; height:auto}
+.burbuja{position:absolute; left:12px; top:12px; display:flex; flex-direction:column; gap:6px; max-width:62%}
+.chip{font-family:var(--f-dato); font-size:11px; padding:4px 9px; border-radius:99px;
+  background:rgba(10,13,22,.82); border:1px solid var(--linea); color:var(--tinta2); backdrop-filter:blur(3px)}
+.chip.mal{color:var(--cort); border-color:#5A2440}
+.chip.bien{color:var(--plumbob); border-color:#2C6B47}
+.haciendo{display:flex; align-items:center; gap:10px; padding:10px 12px; border-top:1px solid var(--linea); background:#101423}
+.haciendo .qué{font-family:var(--f-display); font-size:15px; font-weight:700}
+.haciendo .prog{flex:1; height:6px; background:#0A0D18; border-radius:3px; overflow:hidden}
+.haciendo .prog i{display:block; height:100%; background:var(--plumbob); width:0%}
+.haciendo .cola{font-family:var(--f-dato); font-size:11px; color:var(--tinta3)}
+
+/* ── acciones ────────────────────────────────────────────────────────── */
+.acciones{display:grid; grid-template-columns:repeat(auto-fill,minmax(146px,1fr)); gap:7px}
+.acc{display:flex; gap:8px; align-items:flex-start; text-align:left; cursor:pointer;
+  background:var(--panel2); border:1px solid var(--linea); border-radius:8px; padding:8px 9px; transition:border-color .12s, transform .12s}
+
+.acc:hover{border-color:#3D4666; transform:translateY(-1px)}
+.acc .ic{font-size:15px; line-height:1.1}
+.acc .tx{min-width:0}
+.acc .nm{font-size:12.5px; font-weight:600; display:block}
+.acc .sb{font-size:10.5px; color:var(--tinta3); font-family:var(--f-dato)}
+.acc[disabled]{opacity:.38; cursor:not-allowed; transform:none}
+.acc.mala{border-color:#3A2233}
+.acc.mala .nm{color:#F09CBF}
+.grupo{font-family:var(--f-dato); font-size:10px; text-transform:uppercase; letter-spacing:.11em;
+  color:var(--tinta3); margin:12px 0 6px; grid-column:1/-1}
+.grupo:first-child{margin-top:0}
+
+/* ── pestañas ────────────────────────────────────────────────────────── */
+.tabs{display:flex; gap:3px; background:#0E1220; border:1px solid var(--linea); border-radius:8px; padding:3px; margin-bottom:10px}
+.tabs button{flex:1; background:none; border:0; padding:6px 4px; border-radius:6px; cursor:pointer;
+  font-size:12px; color:var(--tinta3)}
+.tabs button[aria-selected="true"]{background:var(--panel2); color:var(--tinta); font-weight:600}
+#grafo{display:block; width:100%; height:auto; background:#0A0C14; border-radius:8px; border:1px solid var(--linea); cursor:grab}
+.ficha{margin-top:9px; padding:10px; background:var(--panel2); border:1px solid var(--linea); border-radius:8px}
+.ficha h4{font-size:14px; margin-bottom:4px}
+.ficha p{margin:0 0 6px; font-size:12.5px; color:var(--tinta2)}
+.ficha a{color:var(--plumbob); font-size:11.5px; font-family:var(--f-dato); word-break:break-all}
+.etq{display:inline-block; font-family:var(--f-dato); font-size:10px; text-transform:uppercase;
+  letter-spacing:.08em; padding:2px 7px; border-radius:99px; border:1px solid var(--linea); color:var(--tinta3)}
+
+/* ── protocolos ──────────────────────────────────────────────────────── */
+.proto{display:flex; gap:9px; padding:9px 0; border-bottom:1px solid var(--linea); align-items:flex-start}
+.proto:last-child{border-bottom:0}
+.sw{position:relative; flex:0 0 34px; height:19px; background:#0D1120; border:1px solid var(--linea);
+  border-radius:99px; cursor:pointer; transition:background .15s; margin-top:2px}
+.sw::after{content:""; position:absolute; top:2px; left:2px; width:13px; height:13px; border-radius:50%;
+  background:var(--tinta3); transition:transform .15s, background .15s}
+.sw[aria-pressed="true"]{background:#123222; border-color:#2C6B47}
+.sw[aria-pressed="true"]::after{transform:translateX(15px); background:var(--plumbob)}
+.proto .nm{font-size:13px; font-weight:600; display:block}
+.proto .ds{font-size:11.5px; color:var(--tinta3)}
+
+/* ── negocio / bitácora ──────────────────────────────────────────────── */
+.kpis{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px}
+.kpi{background:var(--panel2); border:1px solid var(--linea); border-radius:8px; padding:9px 10px}
+.kpi .n{font-family:var(--f-dato); font-size:19px; font-weight:600; font-variant-numeric:tabular-nums}
+.kpi .l{font-size:10.5px; color:var(--tinta3); text-transform:uppercase; letter-spacing:.07em; font-family:var(--f-dato)}
+.log{max-height:340px; overflow-y:auto; font-size:12.5px; display:flex; flex-direction:column; gap:6px}
+.log div{display:grid; grid-template-columns:44px 1fr; gap:8px; color:var(--tinta2)}
+.log time{font-family:var(--f-dato); font-size:11px; color:var(--tinta3); font-variant-numeric:tabular-nums}
+.log .b{color:var(--plumbob)} .log .m{color:var(--cort)} .log .i{color:var(--da)}
+#pk{display:block; width:100%; height:auto}
+.leyenda{display:flex; gap:12px; font-family:var(--f-dato); font-size:11px; color:var(--tinta2); margin-top:6px}
+.leyenda i{display:inline-block; width:9px; height:2.5px; border-radius:2px; vertical-align:middle; margin-right:5px}
+.meta input{width:100%; background:#0D1120; border:1px solid var(--linea); border-radius:7px;
+  padding:8px 10px; color:var(--tinta); font-family:var(--f-display); font-size:14px; font-weight:700}
+.pie{color:var(--tinta3); font-size:11.5px; text-align:center; padding:4px 0 0; line-height:1.6}
+.pie a{color:var(--tinta2)}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="marca">
+      <h1>Modo Supervivencia</h1>
+      <span>sim de un sistema nervioso frente a la computadora</span>
+    </div>
+    <div class="reloj"><span id="reloj">06:40</span><small id="dia">Día 1 · martes</small></div>
+    <div class="modo foco" id="modo">Enfoque</div>
+    <div class="vel" role="group" aria-label="Velocidad">
+      <button data-v="0" aria-pressed="false">‖</button>
+      <button data-v="1" aria-pressed="true">1×</button>
+      <button data-v="4" aria-pressed="false">4×</button>
+      <button data-v="12" aria-pressed="false">12×</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- ══ IZQUIERDA: el cerebro ══════════════════════════════════════ -->
+    <section class="col izq">
+      <div class="caja">
+        <h3>Química <b id="ud">U invertida: —</b></h3>
+        <div id="quimica"></div>
+      </div>
+
+      <div class="caja">
+        <h3>Fármacos <b id="d2">D2 ocupada 0%</b></h3>
+        <canvas id="pk" width="560" height="190"></canvas>
+        <div class="leyenda">
+          <span><i style="background:#E8A93A"></i>Metilfenidato 10 mg</span>
+          <span><i style="background:#8B7BFF"></i>Quetiapina</span>
+        </div>
+        <p class="nota" id="notaFarmaco" style="margin-top:8px"></p>
+      </div>
+
+      <div class="caja">
+        <h3>Regiones</h3>
+        <div id="regiones"></div>
+      </div>
+    </section>
+
+    <!-- ══ CENTRO: el cuarto ══════════════════════════════════════════ -->
+    <section class="col">
+      <div class="escena">
+        <canvas id="cuarto" width="1000" height="560"></canvas>
+        <div class="burbuja" id="burbuja"></div>
+        <div class="haciendo">
+          <span class="qué" id="haciendo">Despertando</span>
+          <span class="prog"><i id="progAcc"></i></span>
+          <span class="cola" id="cola">sin cola</span>
+        </div>
+      </div>
+
+      <div class="caja">
+        <h3>Estado <b id="estadoResumen"></b></h3>
+        <div id="necesidades" style="display:grid; grid-template-columns:1fr 1fr; gap:0 16px"></div>
+      </div>
+
+      <div class="caja meta">
+        <h3>La única meta</h3>
+        <input id="meta" value="Que el sistema haga los videos sin mí" maxlength="64" aria-label="La única meta">
+        <p class="nota" style="margin-top:7px">Una meta escrita y visible baja el costo de cambiar de tarea: la corteza prefrontal no tiene que sostenerla en memoria de trabajo. Dos metas simultáneas cuestan más que el doble.</p>
+      </div>
+
+      <div class="caja">
+        <h3>Acciones <b id="pistaAcc">lo que él elige hacer</b></h3>
+        <div class="acciones" id="acciones"></div>
+      </div>
+    </section>
+
+    <!-- ══ DERECHA: pestañas ══════════════════════════════════════════ -->
+    <section class="col der">
+      <div class="caja">
+        <div class="tabs" role="tablist">
+          <button role="tab" aria-selected="true" data-t="grafo">Grafo</button>
+          <button role="tab" aria-selected="false" data-t="proto">Protocolos</button>
+          <button role="tab" aria-selected="false" data-t="negocio">Negocio</button>
+          <button role="tab" aria-selected="false" data-t="log">Bitácora</button>
+        </div>
+
+        <div id="p-grafo">
+          <canvas id="grafo" width="700" height="520"></canvas>
+          <div class="ficha" id="fichaNodo">
+            <h4>Grafo de conocimiento</h4>
+            <p>Cada cosa que entiende es un nodo. Se desbloquean investigando (Andromeda), caminando (las conexiones salen en la caminata, no en la silla) y se <b>consolidan al dormir</b>: lo que no duerme, no se guarda.</p>
+            <span class="etq" id="contNodos">0 / 0 nodos</span>
+          </div>
+        </div>
+
+        <div id="p-proto" hidden>
+          <p class="nota" style="margin-bottom:6px">Palancas sobre el sistema nervioso. Cada una cuesta tiempo y cambia el modelo de verdad — no son adornos.</p>
+          <div id="protocolos"></div>
+        </div>
+
+        <div id="p-negocio" hidden>
+          <div class="kpis" id="kpis"></div>
+          <div id="progresos"></div>
+          <p class="nota" style="margin-top:10px" id="notaNegocio"></p>
+        </div>
+
+        <div id="p-log" hidden><div class="log" id="log"></div></div>
+      </div>
+    </section>
+  </div>
+
+  <p class="pie">Modelo de juguete, no consejo médico. Farmacocinética y efectos son aproximaciones razonables, no tu caso.<br>
+  Andromeda: <a href="https://engineering.fb.com/2024/12/02/production-engineering/meta-andromeda-advantage-automation-next-gen-personalized-ads-retrieval-engine/">Engineering at Meta, dic 2024</a>.</p>
+</div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const clamp = (v, a=0, b=1) => v < a ? a : v > b ? b : v;
+const lerp = (a,b,t) => a + (b-a)*t;
+const DIAS = ["lunes","martes","miércoles","jueves","viernes","sábado","domingo"];
+
+/* ═══════════════════════════════════════════════════════════════════════
+   1. ESTADO
+   ═══════════════════════════════════════════════════════════════════════ */
+const S = {
+  min: 6*60 + 40,          // minutos desde el inicio del día 1
+  vel: 1,
+  q: {da:.45, ne:.40, ht:.50, cort:.35, aden:.25},   // química (0..1)
+  r: {pfc:.5, estriado:.5, amig:.2, hipo:.5, dmn:.3},// regiones (0..1)
+  n: {energia:72, animo:58, hambre:70, sueno:78},    // necesidades (0..100)
+  dosis: [],               // {tipo:'mph'|'quet', mg, t}
+  deudaSueno: 0.15,        // 0..1
+  bdnf: 0,                 // ventana post-ejercicio (min restantes)
+  amenaza: .18,            // 0..1
+  tolerancia: 0,
+  accion: null,            // {id, fin, ini}
+  cola: [],
+  autonomo: true,
+  ultDespierto: 6*60+40,
+  neg: {sistema: 12, reels: 0, clientes: 0, ingresos: 0, postulaciones: 0, respuestas: 0, alcance: 34},
+  skill: {edicion:.45, blender:.38, ads:.22},
+  protos: {},
+  log: [],
+  burbujas: [],
+  pos: {x:5.3, y:1.6, dir:1, estado:"pc", tRuta:0, ruta:null},
+};
+
+const reloj = () => {
+  const m = Math.floor(S.min) % 1440;
+  return String(Math.floor(m/60)).padStart(2,"0") + ":" + String(m%60).padStart(2,"0");
+};
+const hora = () => (S.min % 1440) / 60;
+const dia  = () => Math.floor(S.min / 1440) + 1;
+
+function bitacora(txt, clase="") {
+  S.log.unshift({t: reloj(), txt, clase});
+  if (S.log.length > 130) S.log.pop();
+  pintaLog();
+}
+function burbuja(txt, clase="") {
+  S.burbujas.unshift({txt, clase, hasta: S.min + 55});
+  if (S.burbujas.length > 3) S.burbujas.pop();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   2. FARMACOCINÉTICA — curva de Bateman, una absorción y una eliminación
+   ═══════════════════════════════════════════════════════════════════════ */
+const FARM = {
+  // ka/ke en 1/hora. Metilfenidato IR: pico ~1.5–2 h, vida media ~2.5 h.
+  mph:  {ka:1.25, ke:0.29, ref:10},
+  // Quetiapina: pico ~1.5 h, vida media ~7 h. La cola es la niebla de la mañana.
+  quet: {ka:1.05, ke:0.10, ref:50},
+};
+function bateman(f, hrs) {
+  if (hrs <= 0) return 0;
+  return (f.ka/(f.ka - f.ke)) * (Math.exp(-f.ke*hrs) - Math.exp(-f.ka*hrs));
+}
+// normaliza para que una dosis de referencia haga pico ≈ 1
+for (const k in FARM) {
+  let mx = 0;
+  for (let h = 0; h < 24; h += .05) mx = Math.max(mx, bateman(FARM[k], h));
+  FARM[k].norm = 1 / mx;
+}
+function nivel(tipo, minuto = S.min) {
+  const f = FARM[tipo];
+  let s = 0;
+  for (const d of S.dosis) if (d.tipo === tipo) s += (d.mg/f.ref) * bateman(f, (minuto - d.t)/60) * f.norm;
+  return s;
+}
+// Ocupación D2 de la quetiapina: satura (Emax), por eso 25 mg ya sedan
+const ocupD2 = q => 0.62 * q / (q + 0.55);
+
+/* ═══════════════════════════════════════════════════════════════════════
+   3. PROTOCOLOS — palancas reales sobre el modelo
+   ═══════════════════════════════════════════════════════════════════════ */
+const PROTOS = [
+  {id:"sol",     nm:"Sol en los ojos, 10 min al despertar", ds:"Ancla el reloj: el cortisol sube temprano en vez de a media tarde y la melatonina llega a tiempo. Menos niebla de quetiapina al día siguiente."},
+  {id:"prote",   nm:"Proteína antes del metilfenidato", ds:"Suaviza el pico y el bajón de las 2 h. El estimulante quita el hambre; si no comes antes, no comes."},
+  {id:"suspiro", nm:"Suspiro fisiológico ante la amenaza", ds:"Dos inhalaciones por nariz y una exhalación larga. Baja la amígdala en un minuto — es el freno más rápido que tiene el cuerpo."},
+  {id:"nsdr",    nm:"NSDR / siesta sin dormir, 20 min", ds:"Repone dopamina y baja adenosina sin la inercia de la siesta. Es la salida del bajón de las 4 pm."},
+  {id:"zona2",   nm:"Zona 2 diaria (el regreso caminando)", ds:"El km y medio de vuelta no es cardio: es el modo por defecto del cerebro trabajando. Baja cortisol y ahí salen las conexiones."},
+  {id:"scroll",  nm:"Ayuno de dopamina rápida", ds:"Sin scroll antes de trabajar. La línea base cae con cada pico gratis y luego el trabajo lento no alcanza el umbral."},
+  {id:"frio",    nm:"Frío 2 min (nunca de noche)", ds:"Sube dopamina de forma sostenida por horas, sin el rebote del estimulante."},
+  {id:"timebox", nm:"Timer visible 25/5", ds:"Externaliza la corteza prefrontal: el reloj sostiene la tarea para que él no tenga que hacerlo."},
+  {id:"cierre",  nm:"Ritual de cierre a hora fija", ds:"Apagar sin tarea abierta. Sin esto la rumiación se lleva el sueño y la deuda se acumula."},
+  {id:"etiqueta",nm:"Nombrar la emoción en voz alta", ds:"Poner en palabras lo que sientes baja la amígdala. Barato y funciona en segundos."},
+  {id:"exponer", nm:"Mandar en vez de revisar", ds:"La evitación alimenta la amenaza. Mandar la postulación baja el miedo aunque no contesten; revisarla lo sube."},
+  {id:"quetfija",nm:"Quetiapina temprano y a la misma hora", ds:"Tomarla antes deja la cola fuera de la mañana. Tarde = despertar drogado y perder las primeras dos horas."},
+  {id:"metricas",nm:"Nada de métricas después de las 9", ds:"Ver el alcance caído antes de dormir mete cortisol justo cuando toca bajarlo."},
+  {id:"nodo",    nm:"Escribir el nodo antes de dormir", ds:"Lo que se repasa antes de dormir se consolida esa noche. El grafo se llena mientras duerme."},
+];
+const P = id => !!S.protos[id];
+S.protos = {sol:true, zona2:true, suspiro:false, timebox:true};
+
+/* ═══════════════════════════════════════════════════════════════════════
+   4. ACCIONES
+   ═══════════════════════════════════════════════════════════════════════ */
+const ACC = [
+  {g:"Cuerpo"},
+  {id:"correr",  ic:"🏃", nm:"Correr 1.5 km", min:11, est:"correr",
+   ds:"esfuerzo alto · 11 min"},
+  {id:"caminar", ic:"🚶", nm:"Regresar caminando 1.5 km", min:19, est:"caminar",
+   ds:"zona 2 · 19 min"},
+  {id:"comer",   ic:"🍳", nm:"Comer de verdad", min:22, est:"comer", ds:"22 min"},
+  {id:"agua",    ic:"💧", nm:"Agua y sal", min:3, est:"pie", ds:"3 min"},
+  {id:"sol",     ic:"🌤️", nm:"Salir al sol", min:10, est:"pie", ds:"10 min"},
+  {id:"respirar",ic:"🫁", nm:"Suspiro fisiológico", min:2, est:"respirar", ds:"2 min"},
+  {id:"frio",    ic:"🧊", nm:"Regaderazo frío", min:5, est:"pie", ds:"5 min"},
+  {id:"nsdr",    ic:"🧘", nm:"NSDR 20 min", min:20, est:"dormir", ds:"20 min"},
+  {id:"dormir",  ic:"🛏️", nm:"Dormir", min:420, est:"dormir", ds:"hasta reponer"},
+
+  {g:"Fármacos"},
+  {id:"mph",     ic:"💊", nm:"Metilfenidato 10 mg", min:1, est:"pie", ds:"pico en 1.7 h"},
+  {id:"quet",    ic:"🌙", nm:"Quetiapina", min:1, est:"pie", ds:"cola de 7 h"},
+  {id:"cafe",    ic:"☕", nm:"Café", min:6, est:"pie", ds:"bloquea adenosina"},
+
+  {g:"El sistema"},
+  {id:"sistema", ic:"⚙️", nm:"Construir el sistema", min:40, est:"pc",
+   ds:"con Claude · apalanca todo"},
+  {id:"replicar",ic:"🎬", nm:"Replicar un reel de IG", min:35, est:"pc", ds:"analizar y rehacer"},
+  {id:"editar",  ic:"✂️", nm:"Editar para un cliente", min:45, est:"pc", ds:"entrega = dinero"},
+  {id:"blender", ic:"🧊", nm:"Modelar en Blender", min:50, est:"pc", ds:"sube el techo"},
+  {id:"andro",   ic:"🔭", nm:"Investigar Andromeda", min:30, est:"pc", ds:"desbloquea nodos"},
+
+  {g:"Dinero"},
+  {id:"vender",  ic:"📣", nm:"Ofrecer publicidad $500/mes", min:20, est:"pc", ds:"prospectar en frío"},
+  {id:"computra",ic:"📄", nm:"Postular en Computrabajo", min:25, est:"pc", ds:"muchos postulando"},
+
+  {g:"Fugas"},
+  {id:"scroll",  ic:"📱", nm:"Scrollear", min:25, est:"pc", mala:true, ds:"pico gratis, base más baja"},
+  {id:"metricas",ic:"📉", nm:"Revisar métricas otra vez", min:8, est:"pc", mala:true, ds:"sube la amenaza"},
+];
+const ACCID = Object.fromEntries(ACC.filter(a=>a.id).map(a=>[a.id,a]));
+
+function puede(id) {
+  if (id === "mph")  return S.dosis.filter(d=>d.tipo==="mph" && d.t > (dia()-1)*1440).length < 3 && hora() < 19;
+  if (id === "quet") return S.dosis.filter(d=>d.tipo==="quet" && d.t > (dia()-1)*1440).length < 1;
+  if (id === "correr")  return S.n.energia > 22;
+  if (id === "caminar") return S.n.energia > 8;
+  return true;
+}
+
+function empieza(id) {
+  const a = ACCID[id]; if (!a) return;
+  let dur = a.min;
+  // el sistema construido acorta el trabajo: eso es el apalancamiento
+  if (["editar","replicar"].includes(id)) dur *= lerp(1, .52, S.neg.sistema/100);
+  if (id === "dormir") dur = 60 * clamp(4 + S.deudaSueno*6 + (1-S.n.sueno/100)*3, 3, 9.5);
+
+  S.accion = {id, ini: S.min, fin: S.min + dur, dur};
+  S.pos.estado = a.est;
+  if (a.est === "correr" || a.est === "caminar") S.pos.ruta = 0;
+
+  if (id === "mph") {
+    S.dosis.push({tipo:"mph", mg:10, t:S.min});
+    bitacora("Metilfenidato 10 mg. El pico llega a las " + horaEn(102), "i");
+    if (!P("prote") && S.n.hambre < 55) bitacora("Sin comer antes: el bajón de las 2 h va a pegar más fuerte", "m");
+  }
+  if (id === "quet") {
+    S.dosis.push({tipo:"quet", mg:50, t:S.min});
+    const tarde = hora() > 23.2 || hora() < 4;
+    bitacora("Quetiapina 50 mg" + (tarde ? " — tarde. Mañana arranca con niebla" : ""), tarde ? "m" : "i");
+  }
+  if (id === "cafe") S.q.aden = Math.max(0, S.q.aden - .18);
+}
+
+const horaEn = m => {
+  const t = (S.min + m) % 1440;
+  return String(Math.floor(t/60)).padStart(2,"0") + ":" + String(Math.floor(t%60)).padStart(2,"0");
+};
+
+/* ── lo que produce cada acción por minuto simulado ──────────────────── */
+function efectoAccion(id, dt) {
+  const q = S.q, n = S.n, r = S.r;
+  const trabajo = r.pfc * r.estriado * 2.2;   // 0..~1.2 — el rendimiento real
+
+  switch (id) {
+    case "correr":
+      n.energia -= .95*dt; q.aden += .0055*dt; q.cort += .012*dt; n.animo += .13*dt;
+      S.amenaza = Math.max(0, S.amenaza - .0016*dt);
+      break;
+    case "caminar":
+      n.energia -= .16*dt; q.cort -= .010*dt; q.ht += .0022*dt; r.dmn = Math.min(1, r.dmn + .01*dt);
+      n.animo += .07*dt;
+      // El modo por defecto conectando cosas: aquí es donde nacen las ideas
+      if (Math.random() < .0075*dt*(P("zona2")?1.5:1) * (1 - S.r.amig)) desbloquea("caminata");
+      break;
+    case "comer":  n.hambre += 2.6*dt; n.energia += .28*dt; break;
+    case "agua":   n.energia += .5*dt; break;
+    case "sol":    q.ht += .010*dt; q.cort += .004*dt; n.animo += .12*dt; break;
+    case "respirar": r.amig = Math.max(0, r.amig - .055*dt); q.cort -= .020*dt; break;
+    case "frio":   q.da += .020*dt; n.animo += .3*dt; n.energia += .5*dt; break;
+    case "nsdr":   q.aden -= .011*dt; q.da += .004*dt; r.amig = Math.max(0, r.amig-.012*dt); break;
+    case "dormir":
+      q.aden -= .0042*dt; n.sueno += .19*dt; n.energia += .17*dt;
+      S.deudaSueno = Math.max(0, S.deudaSueno - .00042*dt);
+      r.hipo = Math.min(1, r.hipo + .002*dt);
+      if (Math.random() < .0016*dt) consolida();
+      break;
+
+    case "sistema":
+      S.neg.sistema = Math.min(100, S.neg.sistema + .055*dt*trabajo);
+      if (Math.random() < .0022*dt*trabajo) desbloquea("sistema");
+      break;
+    case "replicar":
+      if (Math.random() < .0009*dt*trabajo) { S.neg.reels++; S.neg.alcance += 3.5;
+        bitacora("Reel replicado. Ya son " + S.neg.reels, "b"); }
+      S.skill.edicion = Math.min(1, S.skill.edicion + .0004*dt*trabajo);
+      break;
+    case "editar":
+      S.neg.ingresos += 4.2*dt*trabajo*(1 + S.skill.edicion);
+      S.skill.edicion = Math.min(1, S.skill.edicion + .0003*dt*trabajo);
+      break;
+    case "blender":
+      S.skill.blender = Math.min(1, S.skill.blender + .0005*dt*trabajo);
+      S.neg.sistema = Math.min(100, S.neg.sistema + .012*dt*trabajo);
+      break;
+    case "andro":
+      S.skill.ads = Math.min(1, S.skill.ads + .0006*dt*trabajo);
+      if (Math.random() < .0055*dt*trabajo) desbloquea("andromeda");
+      break;
+
+    case "vender":  break;   // se resuelve al terminar
+    case "computra":break;
+    case "scroll":
+      q.da += .004*dt; n.animo -= .02*dt; S.tolerancia = Math.min(1, S.tolerancia + .0025*dt);
+      break;
+    case "metricas":
+      S.amenaza = Math.min(1, S.amenaza + .009*dt*(S.neg.alcance < 40 ? 1.7 : .5));
+      break;
+  }
+}
+
+function terminaAccion(id) {
+  const trabajo = S.r.pfc * S.r.estriado * 2.2;
+  if (id === "correr") {
+    S.bdnf = 150;                                   // ventana de aprendizaje
+    S.q.cort = Math.max(0, S.q.cort - .22);         // el rebote va hacia abajo
+    S.q.da += .10;
+    bitacora("1.5 km. Cortisol quemado y ventana de aprendizaje abierta 2.5 h", "b");
+    burbuja("km y medio ✓", "bien");
+    if (S.autonomo) S.cola.push("caminar");
+  }
+  if (id === "caminar") { bitacora("1.5 km de regreso caminando. La cabeza en una sola cosa", "b"); }
+  if (id === "dormir") {
+    consolida(); consolida();
+    S.ultDespierto = S.min;
+    const niebla = nivel("quet");
+    bitacora("Despierta" + (niebla > .35 ? " con la cola de la quetiapina encima" : " descansado"), niebla > .35 ? "m" : "b");
+    if (P("sol") && S.autonomo) S.cola.push("sol");
+  }
+  if (id === "vender") {
+    const p = clamp(.06 + S.neg.sistema/380 + S.skill.ads*.16 + S.r.estriado*.10 + S.neg.reels*.006);
+    if (Math.random() < p) {
+      S.neg.clientes++; S.neg.ingresos += 500;
+      S.amenaza = Math.max(0, S.amenaza - .13);
+      bitacora("Cerró uno: +$500/mes. Van " + S.neg.clientes + " clientes", "b");
+      burbuja("cliente nuevo · +$500", "bien");
+    } else {
+      S.amenaza = Math.min(1, S.amenaza + (P("exponer") ? .02 : .06));
+      bitacora("Vio el mensaje y no contestó", "m");
+    }
+  }
+  if (id === "computra") {
+    S.neg.postulaciones++;
+    // muchos postulando: la probabilidad es baja y sube con portafolio
+    const p = clamp(.035 + S.neg.sistema/900 + S.skill.edicion*.05);
+    if (Math.random() < p) {
+      S.neg.respuestas++;
+      S.amenaza = Math.max(0, S.amenaza - .12);
+      bitacora("¡Contestaron una vacante! Piden portafolio", "b");
+      burbuja("respondieron una vacante", "bien");
+    } else {
+      S.amenaza = Math.min(1, S.amenaza + (P("exponer") ? .012 : .045));
+      bitacora("Postulación " + S.neg.postulaciones + " enviada. 214 candidatos más", "");
+    }
+  }
+  if (id === "scroll") { S.q.da = Math.max(.1, S.q.da - .10); bitacora("25 min de scroll. La base quedó más abajo que antes", "m"); }
+  S.accion = null;
+  S.pos.estado = "pc";
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   5. EL MODELO — química, regiones, amenaza
+   ═══════════════════════════════════════════════════════════════════════ */
+const invU = x => Math.exp(-Math.pow(x - 1.02, 2) / (2*0.36*0.36));   // Yerkes–Dodson
+
+function modelo(dt) {
+  const q = S.q, r = S.r, n = S.n, h = hora();
+  const durmiendo = S.accion && S.accion.id === "dormir";
+  const mph = nivel("mph"), quet = nivel("quet");
+  const d2 = ocupD2(quet);
+
+  // ── ritmo circadiano: pico de cortisol al despertar, valle a las 3 am
+  const desfase = P("sol") ? 0 : 2.2;                    // sin sol, el reloj se corre
+  const circ = Math.exp(-Math.pow(((h - 8 - desfase + 24) % 24) - 0, 2)/9) * .35
+             + Math.exp(-Math.pow(((h - 8 - desfase + 24) % 24) - 24, 2)/9) * .35;
+
+  // ── amenaza percibida → amígdala. Es el interruptor de todo el sim.
+  let amenazaEf = S.amenaza;
+  if (P("etiqueta")) amenazaEf *= .82;
+  if (P("suspiro"))  amenazaEf *= .88;
+  const amigObj = clamp(.08 + amenazaEf*.85 + q.cort*.30 - q.ht*.28 - (n.sueno/100)*.10);
+  r.amig = lerp(r.amig, amigObj, 1 - Math.exp(-dt/22));
+
+  // ── dopamina tónica
+  const daObj = clamp(
+      .40
+    + mph*.42
+    + (S.bdnf > 0 ? .09 : 0)
+    + (P("frio") ? .05 : 0)
+    - d2*.30                       // la quetiapina tapa el receptor: menos señal
+    - S.deudaSueno*.20
+    - S.tolerancia*.14
+    - r.amig*.16
+    + (S.neg.clientes > 0 ? .04 : 0));
+  q.da = lerp(q.da, daObj, 1 - Math.exp(-dt/18));
+
+  // ── noradrenalina: estimulante + alarma, menos el bloqueo α1 de la quetiapina
+  const neObj = clamp(.32 + mph*.46 + r.amig*.55 - quet*.16 - S.deudaSueno*.08);
+  q.ne = lerp(q.ne, neObj, 1 - Math.exp(-dt/14));
+
+  // ── serotonina: sol, movimiento, sueño; la quetiapina estabiliza (5HT2A)
+  const htObj = clamp(.42 + (P("sol")?.10:0) + (P("zona2")?.07:0) + quet*.12
+                      + (n.sueno/100)*.18 - S.deudaSueno*.22 - amenazaEf*.14);
+  q.ht = lerp(q.ht, htObj, 1 - Math.exp(-dt/45));
+
+  // ── cortisol
+  const cortObj = clamp(circ + amenazaEf*.55 - (P("suspiro")?.06:0) - (P("cierre") && h>21 ? .08:0));
+  q.cort = lerp(q.cort, cortObj, 1 - Math.exp(-dt/30));
+
+  // ── adenosina: presión de sueño
+  if (!durmiendo) q.aden = clamp(q.aden + (.00105 + (S.accion?.id==="correr"?.0018:0))*dt);
+
+  // ── sedación efectiva: adenosina + bloqueo H1 de la quetiapina
+  const sedacion = clamp(q.aden*.9 + quet*.62);
+
+  // ── regiones
+  const catecol = q.da + q.ne;                       // el eje de la U invertida
+  const pfcObj = clamp(invU(catecol) * (1 - r.amig*.72) * (1 - sedacion*.62)
+                       * (1 + (P("timebox") ? .10 : 0)) * (1 + (metaClara() ? .07 : 0)));
+  r.pfc = lerp(r.pfc, durmiendo ? .05 : pfcObj, 1 - Math.exp(-dt/10));
+
+  const estObj = clamp((q.da*(1 - d2*.55))*1.35 * (1 - r.amig*.45)
+                       * (1 - S.tolerancia*.3) + (metaClara()? .06:0));
+  r.estriado = lerp(r.estriado, durmiendo ? .05 : estObj, 1 - Math.exp(-dt/12));
+
+  const dmnObj = clamp((S.accion && ["caminar","nsdr","dormir"].includes(S.accion.id) ? .8 : .25)
+                       + r.amig*.3 - r.pfc*.25);
+  r.dmn = lerp(r.dmn, dmnObj, 1 - Math.exp(-dt/20));
+  r.hipo = lerp(r.hipo, clamp(.35 + (S.bdnf>0?.30:0) + (n.sueno/100)*.35 - q.cort*.30), 1 - Math.exp(-dt/40));
+
+  // ── necesidades
+  const surv = enSupervivencia();
+  if (!durmiendo) {
+    n.energia -= (.035 + sedacion*.045 + (surv ? .055 : 0)) * dt;   // el miedo cuesta energía
+    n.sueno   -= (.030 + S.deudaSueno*.02) * dt;
+    n.hambre  -= (.038 + (mph > .3 ? -.006 : 0)) * dt;              // el estimulante quita hambre
+  } else {
+    n.hambre -= .012*dt;
+  }
+  n.animo = clamp(lerp(n.animo, 100*clamp(.18 + q.ht*.5 + q.da*.35 + (S.neg.clientes?.08:0) - r.amig*.45), 1-Math.exp(-dt/60)), 0, 100);
+  for (const k in n) n[k] = clamp(n[k], 0, 100);
+
+  if (n.sueno < 25 && !durmiendo) S.deudaSueno = clamp(S.deudaSueno + .00022*dt);
+  if (S.bdnf > 0) S.bdnf -= dt;
+  S.tolerancia = clamp(S.tolerancia - .00006*dt);
+  S.amenaza = clamp(S.amenaza - (.00022 + (S.neg.clientes*.00006))*dt);
+}
+
+const metaClara = () => ($("#meta").value || "").trim().length > 6;
+const enSupervivencia = () => S.r.amig > .55;
+const sedacionAct = () => clamp(S.q.aden*.9 + nivel("quet")*.62);
+
+/* ═══════════════════════════════════════════════════════════════════════
+   6. EVENTOS — el mundo empuja
+   ═══════════════════════════════════════════════════════════════════════ */
+const EVENTOS = [
+  {p:.9, t:"El reel de ayer cayó 40% de alcance sin cambiar nada", a:.16, cl:"m", req:()=>hora()>9},
+  {p:.8, t:"Un prospecto dejó el mensaje en visto", a:.10, cl:"m"},
+  {p:.5, t:"Renta en 5 días", a:.20, cl:"m", req:()=>dia()%7===3},
+  {p:.7, t:"Un cliente pide cambios a las 11 de la noche", a:.13, cl:"m", req:()=>hora()>22},
+  {p:.6, t:"214 personas postularon a la misma vacante", a:.12, cl:"m"},
+  {p:.5, t:"Meta rechazó el anuncio por 'contenido sensible'", a:.15, cl:"m"},
+  {p:.45,t:"Alguien de la familia pregunta cuándo vas a conseguir un trabajo de verdad", a:.22, cl:"m"},
+  {p:.4, t:"Un reel replicado pegó: +18% de alcance", a:-.12, cl:"b", req:()=>S.neg.reels>0},
+  {p:.35,t:"Un cliente viejo recomienda tu edición", a:-.14, cl:"b", req:()=>S.neg.clientes>0},
+  {p:.3, t:"Andromeda volvió a repartir: el creativo nuevo salió a audiencia amplia", a:-.06, cl:"i", req:()=>nodo("creativo").on},
+];
+let próximoEvento = 180;
+function eventos(dt) {
+  próximoEvento -= dt;
+  if (próximoEvento > 0) return;
+  próximoEvento = 150 + Math.random()*260;
+  if (S.accion && S.accion.id === "dormir") return;
+  const pool = EVENTOS.filter(e => !e.req || e.req());
+  const e = pool[Math.floor(Math.random()*pool.length)];
+  if (!e || Math.random() > e.p) return;
+  S.amenaza = clamp(S.amenaza + e.a);
+  bitacora(e.t, e.cl);
+  burbuja(e.t.length > 46 ? e.t.slice(0,44)+"…" : e.t, e.a > 0 ? "mal" : "bien");
+  if (e.a > .14 && P("suspiro") && S.autonomo) S.cola.unshift("respirar");
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   7. AUTONOMÍA — qué haría él, sin que nadie le diga
+   ═══════════════════════════════════════════════════════════════════════ */
+function decide() {
+  const h = hora(), n = S.n, surv = enSupervivencia(), sed = sedacionAct();
+  const u = {};
+
+  // fisiología primero
+  if (n.sueno < 22 || (sed > .72 && h > 21) || h > 25.5) return "dormir";
+  if (h >= 22.6 && h < 24 && !S.dosis.some(d=>d.tipo==="quet" && d.t > (dia()-1)*1440)) return "quet";
+  if (n.hambre < 30) return "comer";
+  if (h > 6 && h < 9.5 && P("sol") && !S.solHoy) { S.solHoy = true; return "sol"; }
+  if (surv && P("suspiro") && Math.random() < .5) return "respirar";
+  if (surv && P("nsdr") && n.energia < 45) return "nsdr";
+
+  // en modo supervivencia el cerebro no elige lo importante: elige lo que calma
+  if (surv) {
+    u.scroll = 1.4; u.metricas = 1.1; u.editar = .35; u.sistema = .2;
+    u.vender = .1; u.computra = .15; u.andro = .15; u.caminar = .6; u.respirar = .8;
+  } else {
+    const foco = S.r.pfc * S.r.estriado;
+    u.sistema  = .55 + foco*1.5;
+    u.editar   = .45 + (S.neg.clientes>0 ? .9 : .1) + (S.neg.ingresos < 2000 ? .5 : 0);
+    u.replicar = .40 + foco*.9;
+    u.andro    = .35 + S.skill.ads*.4 + (S.neg.alcance < 40 ? .5 : 0);
+    u.blender  = .30 + S.skill.blender*.5;
+    u.vender   = .35 + (S.neg.ingresos < 3000 ? .8 : .2);
+    u.computra = .30 + (S.neg.ingresos < 1500 ? .7 : .1);
+    u.scroll   = .25 + (1 - foco)*.8;
+    u.correr   = (h > 6 && h < 11 && n.energia > 45 && !S.corrióHoy) ? 2.2 : .05;
+    u.frio     = (P("frio") && h < 20 && !S.frioHoy) ? 1.1 : 0;
+    u.nsdr     = (P("nsdr") && h > 14 && h < 18 && n.energia < 55) ? 1.3 : 0;
+  }
+  if (h > 21.5) { u.correr = 0; u.frio = 0; u.computra *= .3; u.vender *= .3; }
+  if (P("metricas") && h > 21) u.metricas = 0;
+  if (P("scroll")) u.scroll *= .35;
+
+  let mejor = null, mv = -1;
+  for (const k in u) { const v = u[k] * (0.72 + Math.random()*0.56); if (v > mv) { mv = v; mejor = k; } }
+  return mejor || "sistema";
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   8. GRAFO DE CONOCIMIENTO (tipo Obsidian)
+   ═══════════════════════════════════════════════════════════════════════ */
+const FUENTE_META = "https://engineering.fb.com/2024/12/02/production-engineering/meta-andromeda-advantage-automation-next-gen-personalized-ads-retrieval-engine/";
+const NODOS = [
+  // ── raíz y embudo
+  {id:"andromeda", nm:"Andromeda", g:"andromeda", on:true, dsc:"El motor de recuperación de anuncios de Meta, anunciado en diciembre de 2024 y ya repartiendo en Facebook e Instagram. No es el que decide el precio: es el que decide qué anuncios llegan siquiera a competir.", src:FUENTE_META},
+  {id:"embudo", nm:"Recuperación → Ranking → Subasta", g:"andromeda", dsc:"Tres etapas. Andromeda es la PRIMERA: de decenas de millones de anuncios a unos miles. Si tu anuncio no sobrevive ahí, el ranking y la subasta ni lo ven — y tú nunca te enteras de por qué.", src:FUENTE_META},
+  {id:"retrieval", nm:"Recuperación: millones → miles", g:"andromeda", dsc:"La etapa que Meta reescribió. Antes era barata y tonta por fuerza; ahora corre una red neuronal profunda por candidato.", src:FUENTE_META},
+  {id:"x10000", nm:"10 000× más capacidad de modelo", g:"andromeda", dsc:"El salto de complejidad en la etapa de recuperación. Por eso el sistema ya puede leer relaciones finas entre persona y anuncio en vez de reglas gruesas de audiencia.", src:FUENTE_META},
+  {id:"indice", nm:"Índice jerárquico", g:"andromeda", dsc:"En vez de dos torres o vecino más cercano aproximado, un índice en capas que sólo baja por las ramas relevantes. Da mejor precisión y recall con costo sublineal.", src:FUENTE_META},
+  {id:"conjunto", nm:"Índice y modelo entrenados juntos", g:"andromeda", dsc:"El índice no se construye aparte: se entrena con el modelo para que las representaciones queden alineadas. Es la razón de que la jerarquía no pierda candidatos buenos.", src:FUENTE_META},
+  {id:"gh", nm:"NVIDIA Grace Hopper", g:"infra", dsc:"El superchip donde vive. Los embeddings de anuncios están en su memoria local para no chocar con el ancho de banda.", src:FUENTE_META},
+  {id:"mtia", nm:"MTIA", g:"infra", dsc:"El acelerador propio de Meta. La siguiente casa de Andromeda; con las próximas generaciones esperan otro ~1000× de complejidad.", src:FUENTE_META},
+  {id:"elastico", nm:"Elasticidad del modelo", g:"infra", dsc:"Ajusta complejidad y número de pasos de inferencia en tiempo real según los recursos disponibles. Con la jerarquía: 10× de eficiencia.", src:FUENTE_META},
+  {id:"kernel", nm:"Fusión de kernels · +3× QPS", g:"infra", dsc:"Operadores GPU conscientes de memoria y pipelining de software: triplican las consultas por segundo de la inferencia de punta a punta.", src:FUENTE_META},
+  {id:"features", nm:"Features en GPU · 100×", g:"infra", dsc:"La extracción de señales de interacción persona-anuncio se reconstruye al vuelo en GPU: 100× mejor latencia y throughput que los componentes viejos en CPU.", src:FUENTE_META},
+  {id:"metricas", nm:"+6% recall · +8% calidad", g:"andromeda", dsc:"Lo que reportó Meta al desplegarlo. Suena poco: sobre ese volumen es enorme, y explica por qué tus números cambiaron sin que tú cambiaras nada.", src:FUENTE_META},
+  {id:"advantage", nm:"Advantage+", g:"andromeda", dsc:"La automatización que Andromeda alimenta: +22% de ROAS reportado en adopción de creativo Advantage+ y +7% de conversión con generación de imagen.", src:FUENTE_META},
+  {id:"autoreg", nm:"Pérdida autorregresiva", g:"andromeda", dsc:"Lo que viene: cambiar la función de pérdida a autorregresiva para inferir más rápido. Es el mismo movimiento que hicieron los modelos de lenguaje.", src:FUENTE_META},
+  // ── implicaciones prácticas
+  {id:"creativo", nm:"El creativo ES la segmentación", g:"practica", dsc:"El sistema lee el creativo — formato, gancho, tono, tema — y predice a quién le toca. Definir una audiencia estrecha ya sólo le quita opciones al modelo.", src:"https://searchengineland.com/meta-ai-driven-advertising-system-andromeda-gem-468020"},
+  {id:"volumen", nm:"Volumen y diversidad de creativos", g:"practica", dsc:"Si el creativo es la señal, la ventaja es producir muchos creativos distintos y dejar que el motor encuentre a quién le tocan. Ahí es donde un sistema de video sistemático se vuelve una ventaja competitiva real.", src:"https://confect.io/tactics/meta-andromeda-2026"},
+  {id:"amplio", nm:"Segmentación amplia gana", g:"practica", dsc:"Las pilas de intereses que antes ganaban ahora estorban: el modelo tiene más información que tú sobre quién convierte.", src:"https://greghal.no/en/blog/meta-ads-algorithm-2026-complete-guide/"},
+  {id:"gem", nm:"GEM: qué DEBERÍA mostrarse", g:"practica", dsc:"Andromeda decide qué puede mostrarse; GEM aprende qué conviene mostrar después. Uno llena el estante, el otro decide qué va al frente.", src:"https://searchengineland.com/meta-ai-driven-advertising-system-andromeda-gem-468020"},
+  {id:"aprendizaje", nm:"Fase de aprendizaje", g:"practica", dsc:"Cada edición reinicia el aprendizaje. Tocar la campaña todos los días es pedirle al motor que empiece de cero todos los días — la versión publicitaria de revisar métricas a las 11 pm."},
+  // ── su mundo
+  {id:"sistema", nm:"El sistema de video", g:"mio", dsc:"Un año construyéndolo: guion, voz, render, subtítulo, entrega. El objetivo no es hacer un video: es que hacer el número 200 cueste lo mismo que el 2."},
+  {id:"replicar", nm:"Replicar cualquier reel", g:"mio", dsc:"La habilidad vendible: ver un reel que funciona y reconstruirlo. Es análisis de estructura, no copia — el gancho, los cortes, el ritmo."},
+  {id:"500", nm:"Publicidad a $500 al mes", g:"mio", dsc:"El precio de entrada. Barato para el cliente, repetible para él: sólo funciona si el sistema hace el trabajo pesado."},
+  {id:"computrabajo", nm:"Computrabajo", g:"mio", dsc:"El plan B con 200 candidatos por vacante. Postular es barato; esperar respuesta es lo caro, porque alimenta la amenaza."},
+  {id:"herramientas", nm:"Claude + Blender", g:"mio", dsc:"Las dos manos: una escribe el sistema, la otra fabrica lo que no existe en stock."},
+  // ── neuro
+  {id:"supervivencia", nm:"Modo supervivencia", g:"neuro", dsc:"Ante amenaza percibida, la amígdala manda y la corteza prefrontal se apaga. Sin energía y con procrastinación: no es flojera, es un cerebro presupuestando para una emergencia que no llega."},
+  {id:"uinvertida", nm:"U invertida", g:"neuro", dsc:"El foco no sube con más catecolaminas: sube hasta un punto y luego baja. Poca dopamina/noradrenalina = niebla; demasiada = ansiedad y saltar de tarea. El estimulante te mueve por la curva, no siempre hacia arriba."},
+  {id:"farmacos", nm:"Metilfenidato y quetiapina", g:"neuro", dsc:"Dos vectores opuestos en el mismo día: uno sube dopamina y noradrenalina por horas; el otro tapa D2 y H1 y deja cola hasta la mañana siguiente. El arte está en el horario, no en la dosis."},
+  {id:"consolidar", nm:"Dormir es guardar", g:"neuro", dsc:"El hipocampo repasa de noche lo que se aprendió. Un nodo sin dormir es un nodo frágil: mañana no está."},
+];
+const ENLACES = [
+  ["andromeda","embudo"],["embudo","retrieval"],["retrieval","x10000"],["retrieval","indice"],
+  ["indice","conjunto"],["x10000","gh"],["gh","mtia"],["gh","features"],["gh","kernel"],
+  ["indice","elastico"],["retrieval","metricas"],["andromeda","advantage"],["retrieval","autoreg"],
+  ["advantage","creativo"],["creativo","volumen"],["creativo","amplio"],["advantage","gem"],
+  ["gem","aprendizaje"],["amplio","aprendizaje"],
+  ["volumen","sistema"],["sistema","replicar"],["sistema","herramientas"],["replicar","500"],
+  ["creativo","500"],["500","computrabajo"],["volumen","replicar"],
+  ["supervivencia","uinvertida"],["uinvertida","farmacos"],["farmacos","consolidar"],
+  ["supervivencia","computrabajo"],["consolidar","sistema"],["supervivencia","sistema"],
+];
+const nodo = id => NODOS.find(n => n.id === id);
+const COLG = {andromeda:"#8B7BFF", infra:"#4FD3B8", practica:"#E8A93A", mio:"#39E27A", neuro:"#FF6A4D"};
+const ORDEN = {
+  andromeda: ["embudo","retrieval","x10000","indice","conjunto","gh","features","kernel","elastico","mtia","metricas","advantage","autoreg","gem","amplio","aprendizaje"],
+  caminata:  ["creativo","volumen","supervivencia","uinvertida","500","replicar","consolidar","farmacos","computrabajo"],
+  sistema:   ["sistema","herramientas","replicar","volumen","500"],
+};
+function desbloquea(via) {
+  const lista = ORDEN[via] || [];
+  for (const id of lista) {
+    const n = nodo(id);
+    if (n && !n.on) {
+      n.on = true; n.frágil = via !== "caminata" ? true : true; n.nuevo = 1;
+      n.x = (Math.random()-.5)*40 + 350; n.y = (Math.random()-.5)*40 + 260;
+      const cómo = via === "caminata" ? "caminando" : via === "andromeda" ? "investigando" : "construyendo";
+      bitacora("Nodo nuevo " + cómo + ": " + n.nm, "i");
+      burbuja("💡 " + n.nm, "bien");
+      pintaFicha(n);
+      return true;
+    }
+  }
+  return false;
+}
+function consolida() {
+  const f = NODOS.find(n => n.on && n.frágil);
+  if (f) { f.frágil = false; bitacora("Consolidado mientras dormía: " + f.nm, "b"); }
+}
+// posiciones iniciales
+NODOS.forEach((n,i) => {
+  const a = (i/NODOS.length)*Math.PI*2;
+  n.x = 350 + Math.cos(a)*(120 + (i%4)*38);
+  n.y = 260 + Math.sin(a)*(95 + (i%3)*34);
+  n.vx = 0; n.vy = 0;
+});
+nodo("sistema").on = true; nodo("replicar").on = true; nodo("computrabajo").on = true;
+nodo("herramientas").on = true; nodo("500").on = true; nodo("supervivencia").on = true;
+
+/* ═══════════════════════════════════════════════════════════════════════
+   9. DIBUJO — el cuarto isométrico
+   ═══════════════════════════════════════════════════════════════════════ */
+const cv = $("#cuarto"), cx = cv.getContext("2d");
+const TW = 46, TH = 23, ZH = 40, OX = 500, OY = 150;
+const iso = (x,y,z=0) => [OX + (x-y)*TW, OY + (x+y)*TH - z*ZH];
+
+function sombra(hex, f) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.min(255, ((n>>16)&255)*f) | 0, g = Math.min(255, ((n>>8)&255)*f) | 0, b = Math.min(255, (n&255)*f) | 0;
+  return "rgb(" + r + "," + g + "," + b + ")";
+}
+function poly(pts, fill) {
+  cx.beginPath(); cx.moveTo(pts[0][0], pts[0][1]);
+  for (let i=1;i<pts.length;i++) cx.lineTo(pts[i][0], pts[i][1]);
+  cx.closePath(); cx.fillStyle = fill; cx.fill();
+}
+function caja(x,y,z,w,d,h,color) {
+  const A = iso(x,y,z+h), B = iso(x+w,y,z+h), C = iso(x+w,y+d,z+h), D = iso(x,y+d,z+h);
+  const B2 = iso(x+w,y,z), C2 = iso(x+w,y+d,z), D2 = iso(x,y+d,z);
+  poly([B,C,C2,B2], sombra(color,.72));   // cara derecha
+  poly([D,C,C2,D2], sombra(color,.52));   // cara izquierda
+  poly([A,B,C,D], color);                 // techo
+}
+function luzNoche() {
+  const h = hora();
+  let t = 0;                                    // 0 día, 1 noche
+  if (h < 6.5) t = 1; else if (h < 8) t = 1-(h-6.5)/1.5;
+  else if (h < 18.5) t = 0; else if (h < 20.5) t = (h-18.5)/2; else t = 1;
+  return t;
+}
+function dibujaCuarto(tf) {
+  const W = cv.width, H = cv.height;
+  const noche = luzNoche();
+  cx.clearRect(0,0,W,H);
+  const g = cx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0, noche > .5 ? "#0C0F1A" : "#141B2B");
+  g.addColorStop(1, "#080A11");
+  cx.fillStyle = g; cx.fillRect(0,0,W,H);
+
+  // piso
+  for (let x=0;x<8;x++) for (let y=0;y<7;y++) {
+    const p = [iso(x,y), iso(x+1,y), iso(x+1,y+1), iso(x,y+1)];
+    poly(p, (x+y)%2 ? sombra("#232A3D", 1-noche*.28) : sombra("#1D2334", 1-noche*.28));
+  }
+  // paredes
+  
+  const par = sombra("#2A3145", 1-noche*.30);
+  // pared del fondo (y=0)
+  poly([iso(0,0,0), iso(8,0,0), iso(8,0,2.2), iso(0,0,2.2)], sombra(par,.86));
+  // pared izquierda (x=0)
+  poly([iso(0,0,0), iso(0,7,0), iso(0,7,2.2), iso(0,0,2.2)], sombra(par,.62));
+
+  // ventana en la pared del fondo, con el cielo de la hora
+  const cielo = noche > .6 ? "#101a35" : noche > .2 ? "#4A3A63" : "#5C87C4";
+  poly([iso(4.6,0,.9), iso(6.6,0,.9), iso(6.6,0,1.9), iso(4.6,0,1.9)], cielo);
+  if (noche > .55) { // luna
+    const [mx,my] = iso(6.0,0,1.55);
+    cx.fillStyle = "#E9E4CF"; cx.beginPath(); cx.arc(mx,my,5,0,7); cx.fill();
+  }
+  cx.strokeStyle = sombra(par,.5); cx.lineWidth = 2;
+  cx.beginPath(); const a1=iso(5.6,0,.9), a2=iso(5.6,0,1.9); cx.moveTo(a1[0],a1[1]); cx.lineTo(a2[0],a2[1]); cx.stroke();
+
+  // cama (izquierda, al fondo)
+  caja(.35,4.2,0,1.5,2.2,.28,"#3A2F52");
+  caja(.35,4.2,.28,1.5,.55,.20,"#DCD6EA");
+  // estante con libros
+  caja(.15,1.2,.95,.45,1.6,.12,"#3B3350");
+  for (let i=0;i<6;i++) caja(.22,1.35+i*.24,1.07,.3,.16,.24+ (i%3)*.06, ["#E8A93A","#4FD3B8","#FF6A4D","#8B7BFF"][i%4]);
+  // planta
+  caja(7.0,5.4,0,.5,.5,.35,"#4A3A2E");
+  caja(7.05,5.45,.35,.4,.4,.55,"#2E6B49");
+
+  // escritorio contra la pared izquierda, mirando al centro
+  caja(1.2,1.2,0,1.0,2.6,.72,"#4A3B2E");           // cubierta
+  caja(1.25,1.25,0,.12,.12,.72,"#332619"); caja(1.25,3.65,0,.12,.12,.72,"#332619");
+  // torre
+  caja(1.35,3.9,0,.5,.7,.9,"#20252F");
+  // monitor
+  const brillo = S.pos.estado === "pc" ? .9 + Math.sin(tf/7)*.06 : .25;
+  caja(1.35,1.55,.72,.10,1.5,.95,"#171C26");
+  const P1 = iso(1.46,1.55,1.62), P2 = iso(1.46,3.05,1.62), P3 = iso(1.46,3.05,.80), P4 = iso(1.46,1.55,.80);
+  const pantalla = cx.createLinearGradient(P1[0],P1[1],P3[0],P3[1]);
+  const app = S.accion ? S.accion.id : "";
+  const tono = app === "blender" ? [70,110,160] : app === "andro" ? [120,90,200] :
+               app === "scroll" ? [190,80,120] : [60,150,120];
+  pantalla.addColorStop(0, "rgba(" + tono.map(c=>Math.round(c*brillo)).join(",") + ",1)");
+  pantalla.addColorStop(1, "rgba(" + tono.map(c=>Math.round(c*brillo*.45)).join(",") + ",1)");
+  poly([P1,P2,P3,P4], pantalla);
+  // renglones de código / cortes de video en la pantalla
+  cx.save(); cx.globalAlpha = .45*brillo;
+  for (let i=0;i<7;i++) {
+    const y0 = .90 + i*.10;
+    const l1 = iso(1.47,1.68,y0), l2 = iso(1.47,1.68 + .35 + ((i*37)%9)/12, y0);
+    cx.strokeStyle = i%3 ? "#DCEAF5" : "#8CF5C8"; cx.lineWidth = 2.2;
+    cx.beginPath(); cx.moveTo(l1[0],l1[1]); cx.lineTo(l2[0],l2[1]); cx.stroke();
+  }
+  cx.restore();
+  // resplandor de la pantalla sobre el piso
+  const [gx,gy] = iso(2.2,2.4,0);
+  const rg = cx.createRadialGradient(gx,gy,4,gx,gy,150);
+  rg.addColorStop(0,"rgba(" + tono.join(",") + ",.20)"); rg.addColorStop(1,"rgba(0,0,0,0)");
+  cx.fillStyle = rg; cx.fillRect(gx-160,gy-120,320,240);
+  // silla
+  const sentado = ["pc"].includes(S.pos.estado);
+  caja(2.35,2.0,0,.55,.55,.42,"#242A38");
+  if (!sentado) caja(2.35,2.5,.42,.55,.12,.5,"#2E3546");
+
+  dibujaPersona(tf);
+
+  // taza en el escritorio
+  caja(1.55,3.2,.72,.18,.18,.22,"#D8D2C4");
+
+  // viñeta nocturna
+  if (noche > 0) {
+    const vg = cx.createRadialGradient(W/2,H/2,120,W/2,H/2,W*.62);
+    vg.addColorStop(0,"rgba(0,0,0,0)"); vg.addColorStop(1,"rgba(2,3,8," + (noche*.62) + ")");
+    cx.fillStyle = vg; cx.fillRect(0,0,W,H);
+  }
+}
+
+const RUTA = [[6.6,.9],[6.9,3.2],[6.4,5.8],[3.6,6.2],[1.4,5.6],[1.1,3.0],[2.4,.9],[4.6,.7]];
+function dibujaPersona(tf) {
+  const e = S.pos.estado;
+  let x, y, z = 0, agacha = 0, paso = 0;
+
+  if (e === "pc")      { x = 2.5; y = 2.25; agacha = .06 + Math.sin(tf/22)*.02; }
+  else if (e === "dormir") { x = .8; y = 4.8; z = .32; }
+  else if (e === "comer")  { x = 5.4; y = 4.6; }
+  else if (e === "respirar"){ x = 4.4; y = 3.4; agacha = Math.sin(tf/26)*.05; }
+  else if (e === "correr" || e === "caminar") {
+    const vel = e === "correr" ? .010 : .0045;
+    S.pos.tRuta = (S.pos.tRuta + vel) % 1;
+    const t = S.pos.tRuta * RUTA.length;
+    const i = Math.floor(t), f = t - i;
+    const a = RUTA[i % RUTA.length], b = RUTA[(i+1) % RUTA.length];
+    x = lerp(a[0], b[0], f); y = lerp(a[1], b[1], f);
+    paso = Math.sin(tf/(e === "correr" ? 3.2 : 6)) * (e === "correr" ? .16 : .07);
+    z = e === "correr" ? Math.abs(Math.sin(tf/3.2))*.08 : 0;
+  } else { x = 4.2; y = 3.6; }
+
+  const piel = "#E6B48C", ropa = e === "dormir" ? "#3E4A6B" : "#2F6E8F";
+  if (e === "dormir") {
+    caja(x-.1, y-.1, z, 1.3, .6, .28, ropa);
+    caja(x+1.0, y-.05, z+.05, .34, .34, .34, piel);
+    cx.save(); cx.globalAlpha = .55 + Math.sin(tf/30)*.3;
+    const [zx,zy] = iso(x+1.1, y, z+.9);
+    cx.fillStyle = "#8B7BFF"; cx.font = "600 15px 'IBM Plex Mono', monospace";
+    cx.fillText("z", zx, zy - (tf%40)*.4);
+    cx.restore();
+    return;
+  }
+  // piernas
+  caja(x+.02+paso*.5, y+.05, 0, .16, .16, .42 - agacha, "#22304A");
+  caja(x+.02-paso*.5, y+.30, 0, .16, .16, .42 - agacha, "#1C2A42");
+  // tronco
+  caja(x, y+.02, .42-agacha, .30, .42, .46, ropa);
+  // brazos: tecleando
+  const tec = (e === "pc") ? Math.sin(tf/4)*.03 : 0;
+  caja(x-.16, y+.06, .70-agacha+tec, .18, .14, .12, ropa);
+  caja(x-.16, y+.30, .70-agacha-tec, .18, .14, .12, ropa);
+  // cabeza
+  caja(x+.03, y+.08, .88-agacha, .26, .30, .28, piel);
+  caja(x+.02, y+.07, 1.10-agacha, .28, .32, .07, "#241A16");
+  // plumbob
+  const hum = clamp(S.n.animo/100*.5 + (1-S.r.amig)*.5);
+  const col = enSupervivencia() ? "#FF5FA8" : hum > .6 ? "#39E27A" : hum > .35 ? "#E8A93A" : "#FF6A4D";
+  const [px,py] = iso(x+.15, y+.22, 1.62 + Math.sin(tf/28)*.05);
+  const s = 9 + Math.sin(tf/28)*1.2;
+  cx.save(); cx.translate(px,py);
+  cx.beginPath(); cx.moveTo(0,-s); cx.lineTo(s*.6,0); cx.lineTo(0,s); cx.lineTo(-s*.6,0); cx.closePath();
+  cx.fillStyle = col; cx.globalAlpha = .92; cx.fill();
+  cx.globalAlpha = .3; cx.lineWidth = 6; cx.strokeStyle = col; cx.stroke();
+  cx.restore();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   10. DIBUJO — farmacocinética (24 h)
+   ═══════════════════════════════════════════════════════════════════════ */
+const pk = $("#pk"), px = pk.getContext("2d");
+function dibujaPK() {
+  const W = pk.width, H = pk.height, m = {l:26, r:10, t:12, b:20};
+  px.clearRect(0,0,W,H);
+  const t0 = Math.floor(S.min/1440)*1440;                 // desde las 00:00 de hoy
+  const x = h => m.l + (h/24)*(W-m.l-m.r);
+  const y = v => H-m.b - v*(H-m.t-m.b);
+
+  px.strokeStyle = "#20263a"; px.lineWidth = 1;
+  for (let h=0; h<=24; h+=6) { px.beginPath(); px.moveTo(x(h), m.t); px.lineTo(x(h), H-m.b); px.stroke(); }
+  px.fillStyle = "#6E7591"; px.font = "10px 'IBM Plex Mono', monospace"; px.textAlign = "center";
+  for (let h=0; h<=24; h+=6) px.fillText(String(h).padStart(2,"0"), x(h), H-6);
+
+  for (const [tipo, color] of [["quet","#8B7BFF"], ["mph","#E8A93A"]]) {
+    px.beginPath();
+    for (let h=0; h<=24; h+=.15) {
+      const v = nivel(tipo, t0 + h*60);
+      const [cxp, cyp] = [x(h), y(clamp(v,0,1.15))];
+      h === 0 ? px.moveTo(cxp,cyp) : px.lineTo(cxp,cyp);
+    }
+    px.strokeStyle = color; px.lineWidth = 2; px.lineJoin = "round"; px.stroke();
+    px.lineTo(x(24), y(0)); px.lineTo(x(0), y(0)); px.closePath();
+    px.fillStyle = color + "1F"; px.fill();
+  }
+  // ahora
+  const hAhora = (S.min - t0)/60;
+  px.strokeStyle = "#39E27A"; px.setLineDash([3,3]); px.beginPath();
+  px.moveTo(x(hAhora), m.t); px.lineTo(x(hAhora), H-m.b); px.stroke(); px.setLineDash([]);
+  // valores actuales, etiquetados directo
+  const vm = nivel("mph"), vq = nivel("quet");
+  px.textAlign = "left"; px.font = "600 11px 'IBM Plex Mono', monospace";
+  if (vm > .04) { px.fillStyle = "#E8A93A"; px.fillText(vm.toFixed(2), x(hAhora)+5, y(vm)-4); }
+  if (vq > .04) { px.fillStyle = "#8B7BFF"; px.fillText(vq.toFixed(2), x(hAhora)+5, y(vq)+12); }
+  px.fillStyle = "#6E7591"; px.textAlign = "right"; px.font = "10px 'IBM Plex Mono', monospace";
+  px.fillText("pico", m.l-4, y(1)+3);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   11. DIBUJO — grafo
+   ═══════════════════════════════════════════════════════════════════════ */
+const gcv = $("#grafo"), gx = gcv.getContext("2d");
+let sel = null, hover = null;
+function fuerzas() {
+  const vis = NODOS.filter(n => n.on);
+  for (const a of vis) {
+    for (const b of vis) {
+      if (a === b) continue;
+      const dx = a.x-b.x, dy = a.y-b.y; const d2 = dx*dx+dy*dy+.01;
+      if (d2 < 26000) { const f = 900/d2; a.vx += dx*f*.02; a.vy += dy*f*.02; }
+    }
+    a.vx += (350 - a.x)*.0016; a.vy += (255 - a.y)*.0016;
+  }
+  for (const [i,j] of ENLACES) {
+    const a = nodo(i), b = nodo(j);
+    if (!a.on || !b.on) continue;
+    const dx = b.x-a.x, dy = b.y-a.y, d = Math.hypot(dx,dy) || 1;
+    const f = (d - 96) * .0075;
+    a.vx += dx/d*f; a.vy += dy/d*f; b.vx -= dx/d*f; b.vy -= dy/d*f;
+  }
+  for (const n of vis) {
+    n.vx *= .82; n.vy *= .82;
+    n.x = clamp(n.x + n.vx, 42, gcv.width-42); n.y = clamp(n.y + n.vy, 30, gcv.height-30);
+    if (n.nuevo) n.nuevo = Math.max(0, n.nuevo - .012);
+  }
+}
+function dibujaGrafo() {
+  gx.clearRect(0,0,gcv.width,gcv.height);
+  gx.fillStyle = "#0A0C14"; gx.fillRect(0,0,gcv.width,gcv.height);
+  for (const [i,j] of ENLACES) {
+    const a = nodo(i), b = nodo(j);
+    if (!a.on || !b.on) continue;
+    const act = sel && (sel.id === i || sel.id === j);
+
+    gx.strokeStyle = act ? "#556086" : "#232a3f";
+    gx.lineWidth = act ? 1.6 : 1;
+    gx.beginPath(); gx.moveTo(a.x,a.y); gx.lineTo(b.x,b.y); gx.stroke();
+  }
+  for (const n of NODOS) {
+    if (!n.on) continue;
+    const c = COLG[n.g], r = 5 + (n.g === "andromeda" && n.id === "andromeda" ? 4 : 0) + (n.nuevo||0)*10;
+    if (sel === n || hover === n) { gx.beginPath(); gx.arc(n.x,n.y,r+7,0,7); gx.fillStyle = c+"26"; gx.fill(); }
+    gx.beginPath(); gx.arc(n.x,n.y,r,0,7);
+    if (n.frágil) { gx.strokeStyle = c; gx.lineWidth = 1.6; gx.setLineDash([2,2]); gx.stroke(); gx.setLineDash([]); }
+    else { gx.fillStyle = c; gx.fill(); }
+    gx.fillStyle = (sel===n||hover===n) ? "#ECEAF4" : "#98A0BC";
+    gx.font = (sel===n?"600 ":"") + "11px 'IBM Plex Sans', sans-serif";
+    gx.textAlign = "center";
+    gx.fillText(n.nm.length > 26 ? n.nm.slice(0,25)+"…" : n.nm, n.x, n.y + r + 12);
+  }
+}
+gcv.addEventListener("mousemove", ev => {
+  const r = gcv.getBoundingClientRect(), s = gcv.width/r.width;
+  const mx = (ev.clientX-r.left)*s, my = (ev.clientY-r.top)*s;
+  hover = NODOS.find(n => n.on && Math.hypot(n.x-mx, n.y-my) < 16) || null;
+  gcv.style.cursor = hover ? "pointer" : "default";
+});
+gcv.addEventListener("click", () => { if (hover) { sel = hover; pintaFicha(hover); } });
+
+function pintaFicha(n) {
+  sel = n;
+  $("#fichaNodo").innerHTML =
+    '<h4>' + n.nm + '</h4>' +
+    '<p>' + n.dsc + '</p>' +
+    '<span class="etq" style="color:' + COLG[n.g] + '; border-color:' + COLG[n.g] + '55">' + n.g + '</span> ' +
+    '<span class="etq">' + (n.frágil ? "frágil · falta dormir" : "consolidado") + '</span>' +
+    (n.src ? '<p style="margin-top:7px"><a href="' + n.src + '" target="_blank" rel="noopener">' + n.src.replace(/^https?:\/\//,"").slice(0,58) + '…</a></p>' : '');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   12. PANELES
+   ═══════════════════════════════════════════════════════════════════════ */
+function med(et, v, color, sub) {
+  return '<div class="med"><span class="et">' + et + '</span><span class="vl">' + v.toFixed(2) +
+    '</span><span class="barra"><i style="width:' + (clamp(v,0,1)*100).toFixed(1) + '%; background:' + color + '"></i></span>' +
+    (sub ? '<span class="nota" style="grid-column:1/-1; margin-top:2px">' + sub + '</span>' : '') + '</div>';
+}
+function pintaIzquierda() {
+  const q = S.q, mph = nivel("mph"), quet = nivel("quet"), d2 = ocupD2(quet);
+  const cat = q.da + q.ne;
+  $("#quimica").innerHTML =
+      med("Dopamina", q.da, "#E8A93A", q.da < .35 ? "base baja: nada se siente que valga la pena" : "")
+    + med("Noradrenalina", q.ne, "#FF6A4D", q.ne > .82 ? "demasiada: alerta, no foco" : "")
+    + med("Serotonina", q.ht, "#4FD3B8")
+    + med("Cortisol", q.cort, "#FF5FA8", q.cort > .7 ? "alarma sostenida" : "")
+    + med("Adenosina", q.aden, "#8B7BFF", q.aden > .75 ? "presión de sueño alta" : "");
+  const pos = invU(cat);
+  $("#ud").textContent = "U invertida: " + (cat < .75 ? "abajo, niebla" : cat > 1.35 ? "pasado, ansiedad" : "en el pico") +
+                         " (" + pos.toFixed(2) + ")";
+  $("#d2").textContent = "D2 ocupada " + Math.round(d2*100) + "%";
+  $("#notaFarmaco").textContent =
+    mph > .25 ? "Metilfenidato activo: sube dopamina y noradrenalina. Si pasas del pico de la U el foco baja, no sube."
+    : quet > .3 ? "Quetiapina activa: bloquea H1 (sedación) y ocupa D2 (menos empuje). La cola llega hasta la mañana."
+    : "Sin fármaco activo. Todo lo que ves ahora es su base.";
+
+  const r = S.r;
+  $("#regiones").innerHTML =
+      med("Corteza prefrontal · foco", r.pfc, "#4FD3B8", r.pfc < .3 ? "no sostiene la tarea" : "")
+    + med("Estriado · ganas", r.estriado, "#E8A93A")
+    + med("Amígdala · amenaza", r.amig, "#FF5FA8", enSupervivencia() ? "manda ella: la corteza está apagada" : "")
+    + med("Hipocampo · memoria", r.hipo, "#39E27A")
+    + med("Red por defecto · ideas", r.dmn, "#8B7BFF", r.dmn > .6 && r.amig > .5 ? "rumiando, no pensando" : "");
+}
+function pintaCentro() {
+  const n = S.n;
+  const b = (et,v,c) => '<div class="med"><span class="et">' + et + '</span><span class="vl">' + Math.round(v) +
+    '</span><span class="barra"><i style="width:' + v + '%; background:' + c + '"></i></span></div>';
+  $("#necesidades").innerHTML =
+      b("Energía", n.energia, n.energia<25?"#FF5FA8":"#39E27A")
+    + b("Ánimo", n.animo, "#E8A93A")
+    + b("Hambre", n.hambre, n.hambre<30?"#FF6A4D":"#4FD3B8")
+    + b("Sueño", n.sueno, n.sueno<30?"#FF5FA8":"#8B7BFF");
+  $("#estadoResumen").textContent = "deuda de sueño " + Math.round(S.deudaSueno*100) + "% · amenaza " + Math.round(S.amenaza*100) + "%";
+
+  const a = S.accion ? ACCID[S.accion.id] : null;
+  $("#haciendo").textContent = a ? a.nm : "Sin nada — decidiendo";
+  $("#progAcc").style.width = S.accion ? (((S.min - S.accion.ini)/S.accion.dur)*100).toFixed(1) + "%" : "0%";
+  $("#cola").textContent = S.cola.length ? "cola: " + S.cola.map(c=>ACCID[c].nm).join(" → ") : "sin cola";
+
+  $("#burbuja").innerHTML = S.burbujas.filter(x=>x.hasta > S.min)
+    .map(x => '<span class="chip ' + x.clase + '">' + x.txt + '</span>').join("");
+
+  const modo = $("#modo");
+  const sed = sedacionAct();
+  if (enSupervivencia()) { modo.className = "modo surv"; modo.textContent = "Modo supervivencia"; }
+  else if (sed > .68)    { modo.className = "modo sedado"; modo.textContent = "Sedado"; }
+  else                   { modo.className = "modo foco"; modo.textContent = S.r.pfc > .55 ? "Enfoque" : "Disperso"; }
+
+  $("#reloj").textContent = reloj();
+  $("#dia").textContent = "Día " + dia() + " · " + DIAS[(dia()-1) % 7];
+}
+function pintaAcciones() {
+  const cont = $("#acciones");
+  if (!cont.dataset.listo) {
+    cont.innerHTML = ACC.map(a => a.g
+      ? '<div class="grupo">' + a.g + '</div>'
+      : '<button class="acc' + (a.mala ? " mala" : "") + '" data-a="' + a.id + '">' +
+        '<span class="ic">' + a.ic + '</span><span class="tx"><b class="nm">' + a.nm + '</b>' +
+        '<span class="sb">' + a.ds + '</span></span></button>').join("");
+    cont.dataset.listo = "1";
+    cont.addEventListener("click", ev => {
+      const b = ev.target.closest(".acc"); if (!b) return;
+      S.autonomo = false;
+      if (S.accion) S.cola.push(b.dataset.a); else empieza(b.dataset.a);
+      $("#pistaAcc").textContent = "tú tomaste el control · doble clic aquí para devolvérselo";
+    });
+    $("#pistaAcc").addEventListener("dblclick", () => {
+      S.autonomo = true; $("#pistaAcc").textContent = "lo que él elige hacer";
+    });
+  }
+  for (const b of cont.querySelectorAll(".acc")) b.disabled = !puede(b.dataset.a);
+}
+function pintaNegocio() {
+  const n = S.neg;
+  $("#kpis").innerHTML = [
+    ["$" + Math.round(n.ingresos).toLocaleString("es-MX"), "ingresos"],
+    [n.clientes, "clientes a $500"],
+    [n.reels, "reels replicados"],
+    [n.postulaciones + " / " + n.respuestas, "postulado / contestado"],
+  ].map(([v,l]) => '<div class="kpi"><div class="n">' + v + '</div><div class="l">' + l + '</div></div>').join("");
+  const bar = (et,v,c,sub) => '<div class="med"><span class="et">' + et + '</span><span class="vl">' + Math.round(v) +
+    '%</span><span class="barra"><i style="width:' + clamp(v,0,100) + '%; background:' + c + '"></i></span>' +
+    (sub?'<span class="nota" style="grid-column:1/-1">' + sub + '</span>':'') + '</div>';
+  $("#progresos").innerHTML =
+      bar("Sistema de video", n.sistema, "#39E27A", "a 100% cada entrega cuesta la mitad de tiempo")
+    + bar("Habilidad: edición", S.skill.edicion*100, "#E8A93A")
+    + bar("Habilidad: Blender", S.skill.blender*100, "#4FD3B8")
+    + bar("Entender Andromeda", S.skill.ads*100, "#8B7BFF")
+    + bar("Alcance orgánico", n.alcance, "#FF6A4D");
+  $("#notaNegocio").textContent = n.clientes === 0
+    ? "Cero clientes: cada rechazo pesa el doble porque no hay nada del otro lado que lo compense. Es el momento de mayor riesgo de entrar en supervivencia."
+    : "Con " + n.clientes + " cliente(s), un visto ya no es una emergencia. Los ingresos base bajan la amenaza aunque no cambien el ánimo.";
+}
+function pintaProtos() {
+  const c = $("#protocolos");
+  if (!c.dataset.listo) {
+    c.innerHTML = PROTOS.map(p =>
+      '<div class="proto"><button class="sw" data-p="' + p.id + '" aria-pressed="' + (P(p.id)?"true":"false") +
+      '" aria-label="' + p.nm + '"></button><div><b class="nm">' + p.nm + '</b><span class="ds">' + p.ds + '</span></div></div>').join("");
+    c.dataset.listo = "1";
+    c.addEventListener("click", ev => {
+      const b = ev.target.closest(".sw"); if (!b) return;
+      const id = b.dataset.p; S.protos[id] = !S.protos[id];
+      b.setAttribute("aria-pressed", S.protos[id] ? "true" : "false");
+      bitacora((S.protos[id] ? "Protocolo activado: " : "Protocolo apagado: ") + PROTOS.find(x=>x.id===id).nm, S.protos[id]?"b":"");
+    });
+  }
+}
+function pintaLog() {
+  $("#log").innerHTML = S.log.map(l =>
+    '<div><time>' + l.t + '</time><span class="' + l.clase + '">' + l.txt + '</span></div>').join("");
+}
+
+/* pestañas */
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll('.tabs button').forEach(o => o.setAttribute("aria-selected", String(o === b)));
+  for (const t of ["grafo","proto","negocio","log"]) $("#p-" + t).hidden = (t !== b.dataset.t);
+}));
+document.querySelectorAll('.vel button').forEach(b => b.addEventListener("click", () => {
+  S.vel = +b.dataset.v;
+  document.querySelectorAll('.vel button').forEach(o => o.setAttribute("aria-pressed", String(o === b)));
+}));
+
+/* ═══════════════════════════════════════════════════════════════════════
+   13. BUCLE
+   ═══════════════════════════════════════════════════════════════════════ */
+let últ = performance.now(), acumula = 0, cuadro = 0, refresco = 0;
+function bucle(t) {
+  const real = Math.min(100, t - últ); últ = t; cuadro++;
+  acumula += (real/250) * S.vel;                 // 1× = 1 minuto simulado cada 250 ms
+
+  let pasos = 0;
+  while (acumula >= 1 && pasos < 240) {
+    acumula -= 1; pasos++;
+    const dt = 1;
+    const díaAntes = dia();
+    S.min += dt;
+    if (dia() !== díaAntes) { S.corrióHoy = false; S.solHoy = false; S.frioHoy = false; }
+
+    modelo(dt);
+    eventos(dt);
+
+    if (S.accion) {
+      efectoAccion(S.accion.id, dt);
+      if (S.accion.id === "correr") S.corrióHoy = true;
+      if (S.accion.id === "frio") S.frioHoy = true;
+      if (S.min >= S.accion.fin) terminaAccion(S.accion.id);
+    } else if (S.cola.length) {
+      empieza(S.cola.shift());
+    } else if (S.autonomo) {
+      const id = decide();
+      if (puede(id)) empieza(id);
+      else empieza("caminar");
+    }
+  }
+
+  dibujaCuarto(cuadro);
+  fuerzas(); dibujaGrafo();
+  if (cuadro % 6 === 0) { pintaIzquierda(); pintaCentro(); pintaAcciones(); dibujaPK(); }
+  if (cuadro % 30 === 0) { pintaNegocio(); $("#contNodos").textContent =
+    NODOS.filter(n=>n.on).length + " / " + NODOS.length + " nodos · " + NODOS.filter(n=>n.on&&n.frágil).length + " frágiles"; }
+  requestAnimationFrame(bucle);
+}
+
+pintaProtos(); pintaAcciones(); pintaNegocio(); pintaFicha(nodo("andromeda"));
+bitacora("Despierta. Quetiapina de anoche todavía encima; el metilfenidato aún no.", "");
+bitacora("Una sola meta escrita en la pared. Todo lo demás compite contra ella.", "i");
+requestAnimationFrame(bucle);
+</script>
+</body></html>
