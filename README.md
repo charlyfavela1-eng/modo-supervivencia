@@ -20,9 +20,26 @@ El **timer de bloques** (25/5, 50/10, 90/15) va en tiempo real y está acoplado
 al personaje: mientras corre tu bloque él trabaja el paso, y cuando entras al
 descanso se levanta de la silla. Es el gemelo de productividad.
 
-Publicado en claude.ai el plan lo escribe Claude de verdad (capacidad `sample`).
-Servido aquí, sin esa capacidad, arma el plan con su propio repertorio: más
-corto, pero no falla.
+## Con qué cerebro corre
+
+Piensa con lo que haya, en este orden, y lo dice en el panel Cerebro:
+
+1. **Claude** — publicado en claude.ai, con la capacidad `sample` del visor.
+2. **Codex** — servido desde aquí, si tienes `codex` instalado y con sesión:
+   la página llama a `POST /api/cerebro` y el servidor corre
+   `codex exec --skip-git-repo-check -o <archivo> -` con el prompt por stdin.
+   `GET /api/cerebro` dice si está disponible.
+3. **Su propio repertorio** — reglas deterministas. Más corto, nunca falla.
+
+El cerebro no sólo escribe: **revisa lo que propone Codex y decide** —adoptar,
+simplificar o posponer— con los números del estado neuronal del momento, no con
+las ganas. Si la calma está por debajo de lo que el paso pide, pospone y manda
+al personaje a respirar o a caminar.
+
+El panel **Cerebro** muestra el circuito (estriado y tronco empujan la
+prefrontal, la amígdala y la red por defecto la apagan), los **niveles que el
+paso exige** —foco, ganas y calma, cada uno con su marca de umbral— y los
+**consejos del sistema nervioso**, etiquetados para él, para ti o para los dos.
 
 ## Qué modela
 

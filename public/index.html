@@ -166,6 +166,23 @@ button{font-family:inherit; color:inherit}
 .fila{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
 .fila input{flex:1; min-width:170px}
 
+/* ── el cerebro dibujado ─────────────────────────────────────────────── */
+#mapa{display:block; width:100%; height:auto; background:#0C0F19; border:1px solid var(--linea); border-radius:8px}
+#mapa text{font-family:"IBM Plex Mono",monospace; font-size:9px; fill:#8B93AE; letter-spacing:.03em}
+#mapa text.n{font-size:10px; fill:#C9CEDF}
+.consejo{display:grid; grid-template-columns:auto 1fr; gap:3px 8px; padding:8px 0; border-bottom:1px solid var(--linea)}
+.consejo:last-child{border-bottom:0}
+.consejo .qn{font-family:var(--f-dato); font-size:9.5px; text-transform:uppercase; letter-spacing:.09em;
+  padding:2px 7px; border-radius:99px; border:1px solid var(--linea); color:var(--tinta3); align-self:start}
+.consejo .qn.ti{color:var(--da); border-color:#5C4520}
+.consejo .qn.el{color:var(--ht); border-color:#255248}
+.consejo .qn.dos{color:var(--plumbob); border-color:#2C6B47}
+.consejo p{margin:0; font-size:12.5px; color:var(--tinta2)}
+.umbral{display:grid; grid-template-columns:1fr auto; gap:2px 8px; margin-bottom:8px}
+.umbral .et{font-size:12px; color:var(--tinta2)}
+.umbral .vl{font-family:var(--f-dato); font-size:11.5px; font-variant-numeric:tabular-nums}
+.umbral .vl.ok{color:var(--plumbob)} .umbral .vl.no{color:var(--cort)}
+
 /* ── el plan ─────────────────────────────────────────────────────────── */
 .paso{display:grid; grid-template-columns:20px 1fr auto; gap:3px 9px;
   padding:9px 0; border-bottom:1px solid var(--linea)}
@@ -181,6 +198,8 @@ button{font-family:inherit; color:inherit}
 /* ── mesa de trabajo ─────────────────────────────────────────────────── */
 .voz{border-left:2px solid; padding:2px 0 2px 10px; margin-bottom:12px}
 .voz.claude{border-color:#39E27A} .voz.codex{border-color:#8B7BFF} .voz.el{border-color:#E8A93A}
+.voz.cerebro{border-color:#FF6A4D; background:#16121A; border-radius:0 8px 8px 0; padding:8px 10px}
+.voz.cerebro b{color:#FF6A4D}
 .voz b{font-family:var(--f-dato); font-size:10.5px; text-transform:uppercase;
   letter-spacing:.09em; display:block; margin-bottom:4px}
 .voz.claude b{color:#39E27A} .voz.codex b{color:#8B7BFF} .voz.el b{color:#E8A93A}
@@ -227,8 +246,28 @@ button{font-family:inherit; color:inherit}
       </div>
 
       <div class="caja">
-        <h3>Regiones</h3>
-        <div id="regiones"></div>
+        <h3>Cerebro <b id="motorCerebro">motor: mirando…</b></h3>
+        <svg id="mapa" viewBox="0 0 300 200" role="img" aria-label="Mapa del circuito: estriado y locus coeruleus empujan la corteza prefrontal, la amígdala la apaga">
+          <defs>
+            <filter id="brillo" x="-60%" y="-60%" width="220%" height="220%">
+              <feGaussianBlur stdDeviation="5" result="b"/><feMerge>
+              <feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <ellipse cx="150" cy="94" rx="120" ry="76" fill="#141A28" stroke="#28304a" stroke-width="1.5"/>
+          <path d="M60 70 C 96 52, 132 60, 158 44" fill="none" stroke="#232a40" stroke-width="1.5"/>
+          <path d="M76 122 C 118 138, 168 128, 206 142" fill="none" stroke="#232a40" stroke-width="1.5"/>
+          <path d="M196 168 C 200 152, 206 146, 214 142" fill="none" stroke="#28304a" stroke-width="7" stroke-linecap="round"/>
+          <g id="vias" stroke-linecap="round" fill="none"></g>
+          <g id="nodos"></g>
+        </svg>
+        <div id="regiones" style="margin-top:10px"></div>
+
+        <h3 style="margin-top:14px">Lo que pide el paso <b id="reqPaso">sin paso abierto</b></h3>
+        <div id="umbrales"></div>
+
+        <h3 style="margin-top:14px">Consejos <b>del sistema nervioso</b></h3>
+        <div id="consejos"></div>
       </div>
     </section>
 
@@ -1238,6 +1277,7 @@ function pintaIzquierda() {
     + med("Amígdala · amenaza", r.amig, "#FF5FA8", enSupervivencia() ? "manda ella: la corteza está apagada" : "")
     + med("Hipocampo · memoria", r.hipo, "#39E27A")
     + med("Red por defecto · ideas", r.dmn, "#8B7BFF", r.dmn > .6 && r.amig > .5 ? "rumiando, no pensando" : "");
+  dibujaCerebro(); pintaUmbrales(); pintaConsejos();
 }
 function pintaCentro() {
   const n = S.n;
@@ -1349,21 +1389,221 @@ document.querySelectorAll('.vel button').forEach(b => b.addEventListener("click"
 /* ═══════════════════════════════════════════════════════════════════════
    12b. LA META, EL PLAN Y LA MESA (Claude + Codex)
    ═══════════════════════════════════════════════════════════════════════ */
-let SAMPLE = null;          // se llena si este visor deja preguntarle a Claude
+/* Su cerebro corre con lo que haya, en este orden:
+     1. Claude, cuando el visor de claude.ai lo permite (capacidad sample)
+     2. Codex, cuando la página se sirve desde su propio servidor con `codex exec`
+     3. su propio repertorio, que es más corto pero nunca falla                */
+let SAMPLE = null;
+const MOTOR = {tipo:"", nombre:"mirando…"};
 (async () => {
   try { SAMPLE = (window.claude && claude.use) ? await claude.use("sample") : null; }
   catch (e) { SAMPLE = null; }
+  if (SAMPLE) { MOTOR.tipo = "claude"; MOTOR.nombre = "Claude"; }
+  else {
+    let codex = false;
+    try {
+      const c = new AbortController(); const t = setTimeout(() => c.abort(), 2500);
+      const r = await fetch("api/cerebro", {signal: c.signal});
+      clearTimeout(t);
+      codex = r.ok && (await r.json()).disponible === true;
+    } catch (e) { codex = false; }
+    MOTOR.tipo = codex ? "codex" : "local";
+    MOTOR.nombre = codex ? "Codex" : "su propio repertorio";
+  }
+  $("#motorCerebro").textContent = "motor: " + MOTOR.nombre;
   cabeceraMesa();
 })();
+
+function extraeJSON(t) {
+  const a = String(t).indexOf("{"), b = String(t).lastIndexOf("}");
+  if (a < 0 || b <= a) return null;
+  try { return JSON.parse(String(t).slice(a, b + 1)); } catch (e) { return null; }
+}
+// Una sola puerta para pensar, sea cual sea el motor. Devuelve objeto o null.
+async function piensa(prompt) {
+  if (MOTOR.tipo === "claude" && SAMPLE) {
+    try { return await SAMPLE.json(prompt, {modelTier: "default"}); } catch (e) { return null; }
+  }
+  if (MOTOR.tipo === "codex") {
+    try {
+      const c = new AbortController(); const t = setTimeout(() => c.abort(), 150000);
+      const r = await fetch("api/cerebro", {method:"POST", headers:{"Content-Type":"application/json"},
+                                            body: JSON.stringify({prompt}), signal: c.signal});
+      clearTimeout(t);
+      if (!r.ok) return null;
+      return extraeJSON((await r.json()).texto || "");
+    } catch (e) { return null; }
+  }
+  return null;
+}
+
+/* ── el cerebro dibujado: quién empuja y quién apaga a quién ──────────── */
+const NODOS_CEREBRO = [
+  {k:"pfc",      x:78,  y:74,  nm:"prefrontal", c:"#4FD3B8"},
+  {k:"estriado", x:142, y:96,  nm:"estriado",   c:"#E8A93A"},
+  {k:"amig",     x:126, y:138, nm:"amígdala",   c:"#FF5FA8"},
+  {k:"hipo",     x:184, y:132, nm:"hipocampo",  c:"#39E27A"},
+  {k:"dmn",      x:216, y:66,  nm:"por defecto",c:"#8B7BFF"},
+];
+const VIAS = [
+  {de:"estriado", a:"pfc",  tipo:"empuja", peso:() => S.r.estriado,     c:"#E8A93A"},
+  {de:"amig",     a:"pfc",  tipo:"apaga",  peso:() => S.r.amig,         c:"#FF5FA8"},
+  {de:"hipo",     a:"pfc",  tipo:"empuja", peso:() => S.r.hipo * .7,    c:"#39E27A"},
+  {de:"dmn",      a:"pfc",  tipo:"apaga",  peso:() => S.r.dmn * .6,     c:"#8B7BFF"},
+];
+function dibujaCerebro() {
+  const pos = Object.fromEntries(NODOS_CEREBRO.map(n => [n.k, n]));
+  $("#vias").innerHTML = VIAS.map(v => {
+    const a = pos[v.de], b = pos[v.a], w = clamp(v.peso(), 0, 1);
+    const mx = (a.x + b.x)/2, my = (a.y + b.y)/2 - 16;
+    const punta = v.tipo === "apaga"
+      ? '<line x1="' + (b.x - 7) + '" y1="' + (b.y + 10) + '" x2="' + (b.x + 7) + '" y2="' + (b.y + 10) +
+        '" stroke="' + v.c + '" stroke-width="' + (1.5 + w*2.5).toFixed(1) + '" opacity="' + (.25 + w*.75).toFixed(2) + '"/>'
+      : '';
+    return '<path d="M' + a.x + ' ' + a.y + ' Q' + mx + ' ' + my + ' ' + b.x + ' ' + b.y + '" stroke="' + v.c +
+      '" stroke-width="' + (1 + w*3.4).toFixed(1) + '" opacity="' + (.18 + w*.62).toFixed(2) +
+      (v.tipo === "apaga" ? '" stroke-dasharray="5 4' : '') + '"/>' + punta;
+  }).join("");
+  $("#nodos").innerHTML = NODOS_CEREBRO.map(n => {
+    const v = clamp(S.r[n.k], 0, 1), r = 9 + v*13;
+    const apagado = n.k === "pfc" && enSupervivencia();
+    return '<circle cx="' + n.x + '" cy="' + n.y + '" r="' + r.toFixed(1) + '" fill="' + n.c +
+      '" opacity="' + (.16 + v*.62).toFixed(2) + '" filter="url(#brillo)"/>' +
+      '<circle cx="' + n.x + '" cy="' + n.y + '" r="4.5" fill="' + (apagado ? "#5A3346" : n.c) + '"/>' +
+      '<text class="n" x="' + n.x + '" y="' + (n.y + r + 12).toFixed(1) + '" text-anchor="middle">' + n.nm + '</text>' +
+      '<text x="' + n.x + '" y="' + (n.y + r + 22).toFixed(1) + '" text-anchor="middle">' + v.toFixed(2) + '</text>';
+  }).join("") +
+  '<text x="196" y="186" text-anchor="middle">tronco · alerta ' + S.q.ne.toFixed(2) + '</text>' +
+  (enSupervivencia()
+    ? '<text x="16" y="20" fill="#FF5FA8">modo supervivencia: la amígdala apagó la prefrontal</text>' : '');
+}
+
+/* ── los niveles que la meta exige ───────────────────────────────────── */
+const REQ = {
+  sistema:  {pfc:.55, est:.45, calma:.62, nota:"construir es memoria de trabajo pura: aguanta poco ruido"},
+  editar:   {pfc:.38, est:.40, calma:.45, nota:"editar sí se puede a media máquina: es oficio, no invención"},
+  replicar: {pfc:.45, est:.50, calma:.50, nota:"despiezar la estructura pide foco; rehacerla pide ganas"},
+  blender:  {pfc:.52, est:.45, calma:.55, nota:"tres dimensiones en la cabeza: disperso, sale torcido"},
+  andro:    {pfc:.60, est:.40, calma:.65, nota:"leer y entender es lo más caro que hay en foco"},
+  vender:   {pfc:.32, est:.55, calma:.50, nota:"vender no es foco: es ganas y aguante al no"},
+  computra: {pfc:.32, est:.45, calma:.55, nota:"postular es barato; lo caro es lo que sientes esperando"},
+};
+function umbrales() {
+  const p = pasoActual();
+  const req = REQ[p ? p.accion : "sistema"];
+  return {p, req, lista: [
+    {et:"Foco · prefrontal",   v:S.r.pfc,       min:req.pfc,   c:"#4FD3B8", falta:"10 min de sol, o bajar la amígdala antes de insistir"},
+    {et:"Ganas · estriado",    v:S.r.estriado,  min:req.est,   c:"#E8A93A", falta:"frío 2 min o movimiento; el scroll la baja, no la sube"},
+    {et:"Calma · amígdala",    v:1 - S.r.amig,  min:req.calma, c:"#FF5FA8", falta:"suspiro fisiológico y nombrar en voz alta qué te amenaza"},
+  ]};
+}
+const listoParaElPaso = () => umbrales().lista.every(u => u.v >= u.min);
+function pintaUmbrales() {
+  const U = umbrales();
+  $("#reqPaso").textContent = !U.p ? "sin paso abierto"
+    : listoParaElPaso() ? "va con lo que tiene" : "le falta nivel";
+  $("#umbrales").innerHTML = U.lista.map(u => {
+    const ok = u.v >= u.min;
+    return '<div class="umbral"><span class="et">' + u.et + '</span>' +
+      '<span class="vl ' + (ok ? "ok" : "no") + '">' + u.v.toFixed(2) + ' / ' + u.min.toFixed(2) + '</span>' +
+      '<span class="barra doble" style="grid-column:1/-1"><i style="width:' + (clamp(u.v,0,1)*100).toFixed(1) +
+      '%; background:' + u.c + '"></i><b style="left:' + (u.min*100).toFixed(1) + '%"></b></span>' +
+      (ok ? "" : '<span class="nota" style="grid-column:1/-1">' + u.falta + '</span>') + '</div>';
+  }).join("") + '<p class="nota" style="margin-top:2px">' + U.req.nota + '</p>';
+}
+
+/* ── consejos: para él, para ti, o para los dos ──────────────────────── */
+const CONSEJOS = [
+  {q:() => enSupervivencia(), quien:"dos", txt:"Amígdala arriba: esto no es flojera, es un presupuesto de emergencia. Antes de insistir, dos inhalaciones por nariz y una exhalación larga — es el freno más rápido que tiene el cuerpo."},
+  {q:() => S.q.da + S.q.ne > 1.42, quien:"el", txt:"Pasado del pico de la U: más estimulante ahora quita foco en vez de darlo. Camina diez minutos y vuelve al mismo renglón."},
+  {q:() => S.q.da + S.q.ne < .72, quien:"el", txt:"Debajo de la U: la tarea no llega al umbral y por eso no arranca. Frío, sol o movimiento antes que otra pastilla."},
+  {q:() => sedacionAct() > .62 && hora() > 7 && hora() < 20, quien:"el", txt:"Eso es cola de quetiapina, no es tu carácter de la mañana. Tomarla una hora antes te devuelve las primeras dos horas del día."},
+  {q:() => S.n.hambre < 35, quien:"dos", txt:"El estimulante quita el hambre, no la necesidad. Come antes de la siguiente dosis o el bajón de las dos horas pega al doble."},
+  {q:() => S.q.aden > .70, quien:"dos", txt:"Presión de sueño alta: el café la tapa, no la baja. Veinte minutos de NSDR valen más que otra taza."},
+  {q:() => S.deudaSueno > .32, quien:"dos", txt:"Deuda de sueño: la prefrontal es lo primero que se apaga y lo último que se nota. Ningún protocolo compensa dormir."},
+  {q:() => S.r.dmn > .58 && S.r.amig > .48, quien:"dos", txt:"Eso no es pensar, es rumiar. La red por defecto sin calma da vueltas; caminando se convierte en ideas."},
+  {q:() => S.neg.clientes === 0 && S.amenaza > .38, quien:"ti", txt:"Con cero clientes cada visto pesa el doble. Un cliente chico no es dinero: es el amortiguador que te saca del modo supervivencia."},
+  {q:() => T.corriendo && T.fase === "bloque", quien:"ti", txt:"Estás en bloque: la única regla es no abrir métricas. Lo que se te ocurra, anótalo en una línea y sigue."},
+  {q:() => T.fase === "descanso" && T.corriendo, quien:"ti", txt:"Descanso de verdad: levántate y mira lejos. El descanso con pantalla no repone dopamina, la gasta."},
+  {q:() => !P("sol") && hora() > 6 && hora() < 11, quien:"dos", txt:"Diez minutos de sol temprano anclan el reloj entero: cortisol a tiempo en la mañana, melatonina a tiempo en la noche."},
+  {q:() => S.tolerancia > .22, quien:"dos", txt:"La línea base de dopamina baja con cada pico gratis, y por eso lo lento deja de valer la pena. Un día sin scroll antes de trabajar la sube."},
+  {q:() => hora() > 21.5, quien:"ti", txt:"No revises alcance antes de dormir: metes cortisol justo cuando toca bajarlo, y mañana arrancas debiendo."},
+  {q:() => !listoParaElPaso() && !!pasoActual(), quien:"el", txt:"Está por debajo de lo que el paso pide. Forzarlo ahora tarda el doble: primero sube el nivel que falta, luego empieza."},
+  {q:() => true, quien:"dos", txt:"Una meta a la vez, escrita y visible. Lo que ya sostiene el papel no lo tiene que sostener la memoria de trabajo."},
+];
+function pintaConsejos() {
+  const v = CONSEJOS.filter(c => { try { return c.q(); } catch (e) { return false; } }).slice(0, 4);
+  const et = {ti:["ti","para ti"], el:["el","para él"], dos:["dos","los dos"]};
+  $("#consejos").innerHTML = v.map(c =>
+    '<div class="consejo"><span class="qn ' + et[c.quien][0] + '">' + et[c.quien][1] + '</span>' +
+    '<p>' + c.txt + '</p></div>').join("");
+}
+
+/* ── el cerebro revisa lo que propone Codex y decide ─────────────────── */
+async function revisaCodex(p, vClaude, vCodex) {
+  const U = umbrales();
+  const est = "foco " + S.r.pfc.toFixed(2) + " (pide " + U.req.pfc + "), ganas " + S.r.estriado.toFixed(2) +
+              " (pide " + U.req.est + "), calma " + (1 - S.r.amig).toFixed(2) + " (pide " + U.req.calma + "), " +
+              "sedación " + sedacionAct().toFixed(2) + ", amenaza " + S.amenaza.toFixed(2) +
+              ", energía " + Math.round(S.n.energia) + "/100, bloque de " + T.bloque + " min";
+  let r = await piensa(
+    "Eres el juicio de un editor de video que trabaja solo, con TDAH, medicado. NO eres un asistente " +
+    "amable: eres su cerebro decidiendo si le conviene hacer caso.\n" +
+    "PASO: " + p.titulo + "\nPROPUESTA DE CODEX: " + vCodex.txt + " — comando: " + (vCodex.code || "ninguno") + "\n" +
+    "ESTADO NEURONAL AHORA: " + est + "\n\n" +
+    "Decide con el estado, no con las ganas. Devuelve SOLO JSON:\n" +
+    '{"veredicto":"adoptar|simplificar|posponer","razon":"...","recorte":25}\n' +
+    "adoptar = tiene nivel para hacerlo tal cual. simplificar = la idea sirve pero hay que reducirla a lo " +
+    "que cabe en un bloque. posponer = con este estado se va a quedar a medias y primero toca subir nivel. " +
+    "'razon' en una o dos frases, en español de México, nombrando el número que la sostiene. " +
+    "'recorte' es el porcentaje de minutos que le quitas al paso (0 a 40).");
+
+  if (!r || !["adoptar","simplificar","posponer"].includes(r.veredicto)) {
+    // sin motor, decide con la misma regla que el modelo tendría que seguir
+    r = enSupervivencia() || 1 - S.r.amig < U.req.calma
+      ? {veredicto:"posponer", recorte:0,
+         razon:"Con la calma en " + (1 - S.r.amig).toFixed(2) + " y el paso pidiendo " + U.req.calma +
+               ", automatizar ahora es empezar algo que no vas a terminar."}
+      : S.r.pfc < U.req.pfc
+      ? {veredicto:"simplificar", recorte:20,
+         razon:"El foco va en " + S.r.pfc.toFixed(2) + " y el paso pide " + U.req.pfc +
+               ": alcanza para una versión chica, no para el script completo."}
+      : {veredicto:"adoptar", recorte:20,
+         razon:"Foco " + S.r.pfc.toFixed(2) + " y ganas " + S.r.estriado.toFixed(2) + ": hay nivel para hacerlo tal cual."};
+  }
+  const recorte = clamp(+r.recorte || 0, 0, 40) / 100;
+
+  if (r.veredicto === "adoptar") {
+    p.minutos = Math.max(15, Math.round(p.minutos * (1 - recorte)));
+    S.skill.blender = Math.min(1, S.skill.blender + .008);
+  } else if (r.veredicto === "simplificar") {
+    p.minutos = Math.max(15, Math.min(p.minutos, T.bloque));
+  } else {
+    // posponer: el paso se va al final y el cuerpo pasa primero
+    if (S.plan.pasos.length - S.plan.activo > 1) {
+      S.plan.pasos.push(S.plan.pasos.splice(S.plan.activo, 1)[0]);
+    }
+    S.cola.length = 0;
+    if (S.accion && ["paso","mesa"].includes(S.accion.id)) S.accion = null;
+    empieza(P("suspiro") || S.r.amig > .5 ? "respirar" : "caminar");
+  }
+  S.mesa.unshift({rol:"cerebro", txt:String(r.razon || "").slice(0, 320),
+                  clave:"veredicto: " + r.veredicto, code:""});
+  bitacora("El cerebro revisó a Codex → " + r.veredicto, r.veredicto === "posponer" ? "m" : "b");
+  pintaMesa(); pintaPlan();
+}
+
+/* ── el plan ─────────────────────────────────────────────────────────── */
 
 const ACC_PLAN = ["sistema","replicar","editar","blender","andro","vender","computra"];
 const NOMBRE_ACC = {sistema:"construir", replicar:"replicar", editar:"editar",
                     blender:"Blender", andro:"Andromeda", vender:"vender", computra:"postular"};
 
 function cabeceraMesa() {
-  $("#notaMesa").textContent = SAMPLE
-    ? "Las dos voces las escribe Claude con encargos distintos: el rol Claude ve estructura y estrategia, el rol Codex ve implementación y comandos. Cada consulta te la cobra tu propia cuenta."
-    : "Sin conexión a Claude en esta vista: la mesa trabaja con su propio repertorio, que es más corto pero no falla.";
+  $("#notaMesa").textContent =
+    MOTOR.tipo === "claude" ? "Su cerebro corre con Claude: el rol Claude ve estructura y estrategia, el rol Codex ve implementación y comandos, y después el cerebro decide a cuál le hace caso. Cada consulta la cobra tu propia cuenta."
+    : MOTOR.tipo === "codex" ? "Su cerebro corre con Codex (codex exec en tu máquina, por api/cerebro). Escribe las dos voces y luego decide con el estado neuronal que tenga en ese momento."
+    : "Sin Claude ni Codex a la mano: piensa con su propio repertorio y decide con las reglas del modelo. Más corto, pero no falla.";
 }
 
 /* ── el plan: él busca cómo llegar a la meta que le dictaste ──────────── */
@@ -1375,10 +1615,7 @@ async function buscaPlan() {
   burbuja("buscando cómo…");
   pintaPlan();
 
-  let crudo = null;
-  if (SAMPLE) {
-    try {
-      crudo = await SAMPLE.json(
+  const crudo0 = await piensa(
         "Eres el copiloto de un editor de video mexicano. Vende edición y publicidad a $500 al mes, " +
         "replica reels de Instagram para ofrecer sus servicios, lleva un año construyendo un sistema " +
         "para producir video en serie con Claude y Blender, estudia el algoritmo Andromeda de Meta " +
@@ -1389,14 +1626,11 @@ async function buscaPlan() {
         "Entre 4 y 6 pasos. Cada título es una acción concreta que puede empezar hoy frente a la " +
         "computadora, en español de México, sin relleno ni verbos vacíos. 'porque' dice en una línea " +
         "qué desbloquea ese paso. 'minutos' entre 20 y 90. 'riesgo' es la forma más probable de que " +
-        "esta meta se le caiga.",
-        {modelTier: "default"});
-    } catch (e) { crudo = null; }
-  }
-  const local = !crudo || !Array.isArray(crudo.pasos) || !crudo.pasos.length;
-  if (local) crudo = planLocal(meta);
+        "esta meta se le caiga.");
+  const local = !crudo0 || !Array.isArray(crudo0.pasos) || !crudo0.pasos.length;
+  const crudo = local ? planLocal(meta) : crudo0;
 
-  S.plan.fuente = local ? "local" : "claude";
+  S.plan.fuente = local ? "local" : MOTOR.tipo;
   S.plan.pasos = crudo.pasos.slice(0, 6).map(p => ({
     titulo: String(p.titulo || "Paso").slice(0, 90),
     porque: String(p.porque || "").slice(0, 170),
@@ -1406,7 +1640,7 @@ async function buscaPlan() {
   }));
   S.plan.riesgo = String(crudo.riesgo || "");
   S.plan.activo = 0; S.plan.estado = "listo"; S.plan.pensando = false;
-  bitacora("Plan de " + S.plan.pasos.length + " pasos" + (local ? " (de su propio repertorio)" : " pensado con Claude"), "b");
+  bitacora("Plan de " + S.plan.pasos.length + " pasos" + (local ? " (de su propio repertorio)" : " pensado con " + MOTOR.nombre), "b");
   pintaPlan();
   if (!S.accion) { S.autonomo = true; empieza("paso"); }
 }
@@ -1449,10 +1683,7 @@ async function pideMesa() {
   S.mesa.unshift({rol:"el", txt:"¿Cómo le entro a: " + p.titulo + "?"});
   pintaMesa();
 
-  let r = null;
-  if (SAMPLE) {
-    try {
-      r = await SAMPLE.json(
+  let r = await piensa(
         "Un editor de video mexicano que trabaja solo con Claude y Blender está en este paso de su meta.\n" +
         "META: " + S.plan.meta + "\nPASO: " + p.titulo + "\nPOR QUÉ: " + p.porque + "\n\n" +
         "Dale DOS ángulos distintos del mismo paso, sin repetirse. Devuelve SOLO JSON:\n" +
@@ -1460,10 +1691,7 @@ async function pideMesa() {
         "El rol CLAUDE ve estructura, estrategia y qué escribir; 'clave' es la frase que decide el paso.\n" +
         "El rol CODEX ve implementación: qué automatizar y con qué; 'comando' es UNA línea de terminal " +
         "o de script realista (bash, python o ffmpeg), sin inventar herramientas que no existen.\n" +
-        "Español de México, dos o tres frases por ángulo.",
-        {modelTier: "default"});
-    } catch (e) { r = null; }
-  }
+        "Español de México, dos o tres frases por ángulo.");
   if (!r || !r.claude) {
     r = {claude:{angulo:"Parte el paso hasta que quepa en un bloque de " + S.timer.bloque +
                  " minutos. Lo que no cabe, no se empieza: se pospone.",
@@ -1471,13 +1699,20 @@ async function pideMesa() {
          codex:{angulo:"Lo que vas a repetir más de tres veces, guárdalo como script desde la primera.",
                 comando:"python3 _sistema.py --paso \"" + p.titulo.slice(0,32) + "\" --salida _video/"}};
   }
-  S.mesa.unshift({rol:"codex", txt:String(r.codex && r.codex.angulo || ""), code:String(r.codex && r.codex.comando || "")});
-  S.mesa.unshift({rol:"claude", txt:String(r.claude.angulo || ""), code:"", clave:String(r.claude.clave || "")});
+  const vCodex = {rol:"codex", txt:String(r.codex && r.codex.angulo || ""), code:String(r.codex && r.codex.comando || "")};
+  const vClaude = {rol:"claude", txt:String(r.claude.angulo || ""), code:"", clave:String(r.claude.clave || "")};
+  S.mesa.unshift(vCodex);
+  S.mesa.unshift(vClaude);
   if (S.mesa.length > 24) S.mesa.length = 24;
   S.mesaPidiendo = false;
   S.mesaPendiente = true;
   pintaMesa();
-  if (!S.accion) empieza("mesa"); else if (!S.cola.includes("mesa")) S.cola.unshift("mesa");
+  // y ahora su cerebro decide si le hace caso a Codex o no
+  await revisaCodex(p, vClaude, vCodex);
+  if (pasoActual() === p) {
+    if (!S.accion) empieza("mesa");
+    else if (!S.cola.includes("mesa")) S.cola.unshift("mesa");
+  }
 }
 // lo que la consulta le deja al personaje cuando acaba de leerla
 function resuelveMesa() {
@@ -1516,7 +1751,8 @@ function pintaPlan() {
 function pintaMesa() {
   $("#mesa").innerHTML = S.mesa.length ? S.mesa.map(v =>
     '<div class="voz ' + v.rol + '"><b>' + (v.rol === "claude" ? "Claude · estructura" :
-      v.rol === "codex" ? "Codex · implementación" : "él") + '</b>' +
+      v.rol === "codex" ? "Codex · implementación" :
+      v.rol === "cerebro" ? "su cerebro · decide" : "él") + '</b>' +
     '<p>' + v.txt + '</p>' +
     (v.clave ? '<p style="color:var(--tinta)">« ' + v.clave + ' »</p>' : "") +
     (v.code ? '<code>' + v.code.replace(/</g,"&lt;") + '</code>' : "") + '</div>').join("")
